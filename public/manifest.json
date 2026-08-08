@@ -1,0 +1,18 @@
+{
+  "name": "ChănNuôi AI — Cùng bạn chăn nuôi",
+  "short_name": "ChănNuôi AI",
+  "description": "Ứng dụng trợ lý chăn nuôi gia cầm thông minh tích hợp AI cho nông dân Việt Nam",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F0FAF9",
+  "theme_color": "#00695C",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
