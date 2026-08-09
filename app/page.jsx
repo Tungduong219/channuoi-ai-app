@@ -48,27 +48,8 @@ export default function HomeApp() {
   const [visionResult, setVisionResult] = useState(null);
   const [isAnalyzingVision, setIsAnalyzingVision] = useState(false);
 
-  // Realtime Firestore Listener & Local Storage Initialization
+  // Effect 1: Firestore Realtime Listener
   useEffect(() => {
-    // 1. Load LocalStorage initial fallback
-    const savedTx = localStorage.getItem('channuoi_transactions');
-    if (savedTx) {
-      try {
-        const parsed = JSON.parse(savedTx);
-        setTransactions(parsed);
-        recalculatePnl(parsed);
-      } catch (e) {}
-    } else {
-      const initialTx = [
-        { id: 1, date: '03/08/2026', type: 'EXPENSE', item: 'Cám hỗn hợp gà thịt (5 bao)', amount: 1750000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
-        { id: 2, date: '01/08/2026', type: 'EXPENSE', item: 'Vắc-xin Cúm H5N1 (500 liều)', amount: 200000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
-        { id: 3, date: '28/07/2026', type: 'REVENUE', item: 'Bán gà thịt đợt 1 (100kg x 54k)', amount: 5400000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
-      ];
-      setTransactions(initialTx);
-      localStorage.setItem('channuoi_transactions', JSON.stringify(initialTx));
-    }
-
-    // 2. Realtime Firestore Listener (onSnapshot)
     try {
       const q = query(
         collection(db, "transactions"),
@@ -92,6 +73,26 @@ export default function HomeApp() {
     } catch (err) {
       console.warn("Firestore init error:", err);
     }
+  }, []);
+
+  // Effect 2: Local data load + Vaccine fetch + Online sync listener
+  useEffect(() => {
+    const savedTx = localStorage.getItem('channuoi_transactions');
+    if (savedTx) {
+      try {
+        const parsed = JSON.parse(savedTx);
+        setTransactions(parsed);
+        recalculatePnl(parsed);
+      } catch (e) {}
+    } else {
+      const initialTx = [
+        { id: 1, date: '03/08/2026', type: 'EXPENSE', item: 'Cám hỗn hợp gà thịt (5 bao)', amount: 1750000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
+        { id: 2, date: '01/08/2026', type: 'EXPENSE', item: 'Vắc-xin Cúm H5N1 (500 liều)', amount: 200000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
+        { id: 3, date: '28/07/2026', type: 'REVENUE', item: 'Bán gà thịt đợt 1 (100kg x 54k)', amount: 5400000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
+      ];
+      setTransactions(initialTx);
+      localStorage.setItem('channuoi_transactions', JSON.stringify(initialTx));
+    }
 
     const savedVaccines = localStorage.getItem('channuoi_completed_vaccines');
     if (savedVaccines) {
@@ -100,7 +101,6 @@ export default function HomeApp() {
 
     fetchVaccineSchedule('Gà Ri');
 
-    // Auto Sync Offline Queue on 'online' event
     const handleOnline = () => {
       syncPendingTransactions();
     };
@@ -215,6 +215,10 @@ export default function HomeApp() {
 
     const remaining = 8 - visionImages.length;
     const toProcess = files.slice(0, remaining);
+
+    if (files.length > remaining) {
+      alert(`Chỉ thêm được ${remaining}/${files.length} ảnh do đã đạt giới hạn tối đa 8 ảnh.`);
+    }
 
     // Reset results when new images added
     setVisionResult(null);
@@ -492,10 +496,11 @@ export default function HomeApp() {
                     <button
                       onClick={() => removeVisionImage(item.id)}
                       aria-label="Xóa ảnh"
-                      className="absolute -top-2 -right-2 w-[28px] h-[28px] bg-[#C62828] text-white rounded-full flex items-center justify-center text-xs font-bold shadow leading-none"
-                      style={{ minWidth: '44px', minHeight: '44px', margin: '-8px -8px 0 0' }}
+                      className="absolute -top-2 -right-2 w-[44px] h-[44px] flex items-center justify-center"
                     >
-                      ✕
+                      <span className="w-[22px] h-[22px] bg-[#C62828] text-white rounded-full flex items-center justify-center text-xs font-bold shadow">
+                        ✕
+                      </span>
                     </button>
                   </div>
                 ))}
