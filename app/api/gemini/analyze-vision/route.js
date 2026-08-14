@@ -221,15 +221,6 @@ Nhiệm vụ: Phân tích 1-15 ảnh của CÙNG MỘT con gà — bao gồm c�
     Đối tượng: Gà trưởng thành >16 tuần, đỉnh cao khi bắt đầu đẻ
     Phân biệt với Marek: Leukosis không có u thần kinh tọa, không đổi màu mắt, tuổi mắc cao hơn; u túi bursa là điểm phân biệt chính
 
-20. VIÊM RUỘT HOẠI TỬ / VIÊM DA HOẠI TỬ (Necrotic Enteritis / Gangrenous Dermatitis — Clostridium)
-    Lâm sàng thị giác:
-    - Viêm ruột hoại tử: phân sẫm nâu bã trầu hoặc sống phân nhầy lợn cợn; ủ rũ đột ngột
-    - Viêm da hoại tử ĐẶC TRƯNG: vùng da (cánh, ức, đùi) có mảng đỏ bầm tím, trụi lông, da bủng ướt sờ lạo xạo khí dưới da (viêm thối)
-    Bệnh tích mổ khám ĐẶC TRƯNG:
-    - Ruột non: phình to mỏng chứa khí; niêm mạc phủ màng giả nâu/vàng thô ráp như khăn bông tắm (Turkish towel appearance)
-    - Da/cơ: đùi/ức thâm đen thối rữa, dịch lẫn bọt khí, mùi rất thối
-    Đối tượng: Gà 2–6 tuần; thường thứ phát sau cầu trùng
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【QUY TẮC PHÂN TÍCH & PHÂN BIỆT CHÉO BẮT BUỘC】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
