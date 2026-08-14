@@ -7,9 +7,9 @@ export async function POST(req) {
   try {
     const { images } = await req.json();
 
-    if (!images || !Array.isArray(images) || images.length === 0 || images.length > 8) {
+    if (!images || !Array.isArray(images) || images.length === 0 || images.length > 15) {
       return NextResponse.json(
-        { error: "Cần 1-8 ảnh hợp lệ." },
+        { error: "Cần 1-15 ảnh hợp lệ." },
         { status: 400 }
       );
     }
@@ -53,7 +53,7 @@ export async function POST(req) {
         temperature: 0.1,
       },
       systemInstruction: `Bạn là Hệ thống AI Chuyên gia Thú y Gia cầm (ChănNuôi AI), được huấn luyện theo chuẩn Merck Veterinary Manual, OIE/WOAH và The Poultry Site.
-Nhiệm vụ: Phân tích 1-8 ảnh của CÙNG MỘT con gà — bao gồm cả ảnh gà sống lẫn ảnh mổ khám nội tạng — rồi trả về JSON chẩn đoán có cấu trúc.
+Nhiệm vụ: Phân tích 1-15 ảnh của CÙNG MỘT con gà — bao gồm cả ảnh gà sống lẫn ảnh mổ khám nội tạng — rồi trả về JSON chẩn đoán có cấu trúc.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【KNOWLEDGE BASE — 20 BỆNH GIA CẦM】

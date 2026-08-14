@@ -213,11 +213,11 @@ export default function HomeApp() {
     // Reset file input so same file can be re-added after delete
     e.target.value = '';
 
-    const remaining = 8 - visionImages.length;
+    const remaining = 15 - visionImages.length;
     const toProcess = files.slice(0, remaining);
 
     if (files.length > remaining) {
-      alert(`Chỉ thêm được ${remaining}/${files.length} ảnh do đã đạt giới hạn tối đa 8 ảnh.`);
+      alert(`Chỉ thêm được ${remaining}/${files.length} ảnh do đã đạt giới hạn tối đa 15 ảnh.`);
     }
 
     // Reset results when new images added
@@ -433,9 +433,7 @@ export default function HomeApp() {
                       </div>
                       <h4 className="font-bold text-base text-[#1A2332] mt-0.5">{v.disease_name}</h4>
                       <p className="text-xs text-gray-600">Loại: {v.vaccine_type} • Cách tiêm: {v.method}</p>
-                      <p className="text-[11px] text-gray-500 italic mt-1">{v.notes}</p>
-
-                      <button
+                        <button
                         onClick={() => toggleVaccineDone(v.day_age)}
                         className={`mt-2 w-full btn-secondary ${isDone ? 'bg-[#2E7D32] text-white' : ''}`}
                       >
@@ -450,7 +448,7 @@ export default function HomeApp() {
           </div>
         )}
 
-        {/* SCREEN 4: VISION DIAGNOSIS — MULTI-IMAGE (1–8 ảnh) */}
+        {/* SCREEN 4: VISION DIAGNOSIS — MULTI-IMAGE (1–15 ảnh) */}
         {activeTab === 'vision' && (
           <div className="space-y-4 animate-count-up">
             <h2 className="text-xl font-extrabold text-[#00695C]">📸 Chẩn Đoán Bệnh AI</h2>
@@ -458,7 +456,7 @@ export default function HomeApp() {
             <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
               {/* Hint text */}
               <p className="text-xs text-gray-500 font-medium text-center">
-                Chụp 1–8 ảnh: phân gà, dáng đứng, triệu chứng rõ (mắt, mào, chân)...
+                Chụp 1–15 ảnh: phân gà, dáng đứng, triệu chứng rõ (mắt, mào, chân), ảnh mổ khám...
               </p>
 
               {/* Image grid — 4 columns */}
@@ -483,8 +481,11 @@ export default function HomeApp() {
                       </div>
                     )}
                     {item.qualityStatus === 'failed' && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-[#C62828]/80 rounded-b-xl flex items-center justify-center p-0.5">
-                        <AlertTriangle className="w-3 h-3 text-white" />
+                      <div className="absolute inset-0 bg-[#C62828]/60 rounded-xl p-1 flex flex-col items-center justify-center text-center">
+                        <AlertTriangle className="w-4 h-4 text-white mb-0.5" />
+                        <span className="text-[9px] font-bold text-white leading-tight">
+                          {item.failReason}
+                        </span>
                       </div>
                     )}
                     {item.qualityStatus === 'passed' && (
@@ -505,8 +506,8 @@ export default function HomeApp() {
                   </div>
                 ))}
 
-                {/* Add button — hidden when 8 images reached */}
-                {visionImages.length < 8 && (
+                {/* Add button — hidden when 15 images reached */}
+                {visionImages.length < 15 && (
                   <label className="aspect-square border-2 border-dashed border-[#00695C]/40 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-[#F0FAF9] transition-colors">
                     <Camera className="w-7 h-7 text-[#00695C]" />
                     <span className="text-[10px] font-bold text-[#00695C] text-center leading-tight">➕ Thêm ảnh</span>
