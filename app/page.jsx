@@ -270,27 +270,22 @@ export default function HomeApp() {
         const img = new Image();
         await new Promise((resolve) => { img.onload = resolve; img.src = base64Raw; });
 
+        // Always compress image for transmission
+        const compressedBase64 = await compressImage(file);
         const qualityResult = checkImageQuality(img);
 
-        if (!qualityResult.isPassed) {
-          setVisionImages((prev) =>
-            prev.map((item) =>
-              item.id === id
-                ? { ...item, qualityStatus: 'failed', failReason: qualityResult.reason }
-                : item
-            )
-          );
-        } else {
-          // Compress before storing
-          const compressedBase64 = await compressImage(file);
-          setVisionImages((prev) =>
-            prev.map((item) =>
-              item.id === id
-                ? { ...item, compressedBase64, qualityStatus: 'passed' }
-                : item
-            )
-          );
-        }
+        setVisionImages((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  compressedBase64,
+                  qualityStatus: qualityResult.isPassed ? 'passed' : 'warning',
+                  failReason: qualityResult.reason || ''
+                }
+              : item
+          )
+        );
       } catch (err) {
         console.error('Image processing error:', err);
         setVisionImages((prev) =>
@@ -314,8 +309,9 @@ export default function HomeApp() {
   };
 
   const analyzeVision = async () => {
-    const passedImages = visionImages.filter((i) => i.qualityStatus === 'passed');
-    if (!passedImages.length) return;
+    // Send all uploaded images that have valid compressed Base64
+    const validImages = visionImages.filter((i) => i.compressedBase64);
+    if (!validImages.length) return;
 
     setIsAnalyzingVision(true);
     setVisionResult(null);
@@ -323,7 +319,7 @@ export default function HomeApp() {
       const res = await fetch('/api/gemini/analyze-vision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: passedImages.map((i) => i.compressedBase64) }),
+        body: JSON.stringify({ images: validImages.map((i) => i.compressedBase64) }),
       });
       const data = await res.json();
       setVisionResult(data);
