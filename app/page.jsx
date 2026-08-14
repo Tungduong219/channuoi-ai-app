@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import AuthHeader from '@/components/AuthHeader';
+import FamilyShareModal from '@/components/FamilyShareModal';
 import TopBar from '@/components/TopBar';
 import BottomNav from '@/components/BottomNav';
 import MicModal from '@/components/MicModal';
@@ -32,6 +34,21 @@ export default function HomeApp() {
   const [isMicOpen, setIsMicOpen] = useState(false);
   const [pnlAmount, setPnlAmount] = useState(3450000);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+
+  // Auth & Multi-Tenancy Roles State
+  const [userRole, setUserRole] = useState('OWNER'); // 'OWNER' | 'WORKER' | 'FAMILY_VIEWER'
+  const [user, setUser] = useState(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // URL Parameter Detection for Family Share Link (?view=family)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'family') {
+        setUserRole('FAMILY_VIEWER');
+      }
+    }
+  }, []);
 
   // Transactions State with LocalStorage & Realtime Firestore Sync
   const [transactions, setTransactions] = useState([]);
@@ -320,7 +337,32 @@ export default function HomeApp() {
 
   return (
     <main className="min-h-screen bg-[#F0FAF9] text-[#1A2332] safe-bottom-padding pt-[64px]">
-      <TopBar pnlAmount={pnlAmount} onOpenSettings={() => setActiveTab('settings')} />
+      <AuthHeader
+        userRole={userRole}
+        setUserRole={setUserRole}
+        user={user}
+        setUser={setUser}
+        onOpenShareModal={() => setIsShareModalOpen(true)}
+      />
+
+      {/* Top Banner for Con Cái / Người thân (FAMILY_VIEWER mode) — Note 3 */}
+      {userRole === 'FAMILY_VIEWER' && (
+        <div className="bg-[#E3F2FD] border-b border-[#90CAF9] text-[#0D47A1] px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-sm animate-count-up">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">👁️</span>
+            <span>Bạn đang xem trang trại của Bố/Mẹ ở chế độ xem từ xa (Chỉ đọc).</span>
+          </div>
+          <span className="text-[10px] bg-[#90CAF9] text-[#0D47A1] font-extrabold px-2 py-0.5 rounded-full uppercase shrink-0">
+            CHỈ ĐỌC
+          </span>
+        </div>
+      )}
+
+      <FamilyShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        farmName={user?.farmName}
+      />
 
       <MicModal
         isOpen={isMicOpen}
@@ -704,17 +746,25 @@ export default function HomeApp() {
           <div className="space-y-4 animate-count-up">
             <h2 className="text-xl font-extrabold text-[#00695C]">💵 Sổ Thu Chi & Báo Cáo Tài Chính</h2>
 
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm text-center">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Lãi Rồng Dự Kiến Lứa Gà</span>
-              <div className="text-3xl sm:text-4xl font-extrabold text-[#2E7D32] my-2">
-                ▲ +{pnlAmount.toLocaleString('vi-VN')} đ
+            {/* Hide Revenue / Profit Card for WORKER role — Note 1 */}
+            {userRole === 'WORKER' ? (
+              <div className="bg-[#FFF8E7] p-4 rounded-2xl border border-[#FF8F00] text-center space-y-1">
+                <p className="text-xs font-bold text-[#1A2332]">🧑‍🌾 Chế độ Công Nhân Chuồng</p>
+                <p className="text-[11px] text-gray-600">Báo cáo Tổng lợi nhuận & Doanh thu tài chính được ẩn để bảo mật.</p>
               </div>
-              <div className="flex items-center justify-center gap-4 text-xs text-gray-600 font-semibold border-t pt-3">
-                <span>FCR: <strong className="text-[#00695C]">1.65</strong></span>
-                <span>•</span>
-                <span>Giá thành/kg: <strong className="text-[#00695C]">48.000đ</strong></span>
+            ) : (
+              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm text-center">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Lãi Rồng Dự Kiến Lứa Gà</span>
+                <div className="text-3xl sm:text-4xl font-extrabold text-[#2E7D32] my-2">
+                  ▲ +{pnlAmount.toLocaleString('vi-VN')} đ
+                </div>
+                <div className="flex items-center justify-center gap-4 text-xs text-gray-600 font-semibold border-t pt-3">
+                  <span>FCR: <strong className="text-[#00695C]">1.65</strong></span>
+                  <span>•</span>
+                  <span>Giá thành/kg: <strong className="text-[#00695C]">48.000đ</strong></span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
               <h3 className="font-bold text-base text-[#1A2332]">Lịch sử giao dịch (Realtime Cloud Firestore)</h3>
@@ -824,6 +874,7 @@ export default function HomeApp() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenMic={() => setIsMicOpen(true)}
+        isReadOnly={userRole === 'FAMILY_VIEWER'}
       />
     </main>
   );

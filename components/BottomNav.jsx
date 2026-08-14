@@ -3,7 +3,7 @@
 import React from 'react';
 import { Home, ShieldAlert, Mic, Wallet, TrendingUp } from 'lucide-react';
 
-export default function BottomNav({ activeTab, setActiveTab, onOpenMic }) {
+export default function BottomNav({ activeTab, setActiveTab, onOpenMic, isReadOnly = false }) {
   const tabs = [
     { id: 'home', label: 'Trang chủ', icon: Home },
     { id: 'vaccine', label: 'Lịch tiêm', icon: ShieldAlert },
@@ -18,8 +18,9 @@ export default function BottomNav({ activeTab, setActiveTab, onOpenMic }) {
         {tabs.map((tab) => {
           const Icon = tab.icon;
 
-          // Center Floating Mic FAB with Notch Space
+          // Center Floating Mic FAB with Notch Space — Hidden in Read-Only (FAMILY_VIEWER) mode
           if (tab.isCenter) {
+            if (isReadOnly) return <div key={tab.id} className="w-8"></div>;
             return (
               <div key={tab.id} className="relative -top-5 mx-2 z-50">
                 <button
