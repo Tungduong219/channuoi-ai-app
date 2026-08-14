@@ -641,10 +641,41 @@ export default function HomeApp() {
                   </div>
                 )}
 
+                {/* Interactive 2-Step Differential Flow CTA */}
+                {visionResult.request_additional_photo && (
+                  <div className="bg-[#E0F2F1] border-2 border-[#00695C] p-3.5 rounded-xl space-y-2 animate-pulse-subtle">
+                    <div className="flex items-center gap-2 text-xs font-extrabold text-[#00695C]">
+                      <Camera className="w-4 h-4 text-[#00695C] shrink-0" />
+                      <span>💡 AI gợi ý chụp thêm 1 góc ảnh để chẩn đoán chính xác 100%:</span>
+                    </div>
+                    {visionResult.reason_for_next_photo && (
+                      <p className="text-xs text-gray-700 bg-white/80 p-2 rounded-lg italic">
+                        "{visionResult.reason_for_next_photo}"
+                      </p>
+                    )}
+                    <label className="w-full bg-[#00695C] hover:bg-[#004D40] text-white py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xs font-extrabold shadow transition-all">
+                      <Camera className="w-4 h-4" />
+                      {visionResult.next_photo_target === 'EYE_COMB' ? '📷 Chụp vùng Mắt & Mào gà' :
+                       visionResult.next_photo_target === 'POOP_ON_WHITE_PAPER' ? '📷 Chụp bãi phân trên nền sáng / giấy' :
+                       visionResult.next_photo_target === 'POST_MORTEM_GIZZARD' ? '📷 Chụp mổ khám nội tạng / dạ dày tuyến' :
+                       visionResult.next_photo_target === 'FULL_BODY' ? '📷 Chụp toàn thân / dáng đứng đàn gà' :
+                       '📷 Chụp Thêm Góc Ảnh Đề Xuất'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        capture="environment"
+                        onChange={addVisionImages}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+
                 {/* What to photograph next */}
                 {visionResult.what_to_photograph_next?.length > 0 && (
                   <div className="text-xs text-[#00695C] bg-[#F0FAF9] p-3 rounded-xl space-y-1">
-                    <span className="font-bold block">📷 Nên chụp thêm:</span>
+                    <span className="font-bold block">📷 Gợi ý chụp bổ sung:</span>
                     <ul className="list-disc list-inside space-y-0.5">
                       {visionResult.what_to_photograph_next.map((w, i) => <li key={i}>{w}</li>)}
                     </ul>

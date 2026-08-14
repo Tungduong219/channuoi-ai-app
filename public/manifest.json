@@ -1,18 +1,26 @@
 {
-  "name": "ChănNuôi AI — Cùng bạn chăn nuôi",
   "short_name": "ChănNuôi AI",
-  "description": "Ứng dụng trợ lý chăn nuôi gia cầm thông minh tích hợp AI cho nông dân Việt Nam",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#F0FAF9",
-  "theme_color": "#00695C",
-  "orientation": "portrait",
+  "name": "ChănNuôi AI — Cùng Bạn Chăn Nuôi",
   "icons": [
     {
-      "src": "/icons/icon.svg",
+      "src": "/icons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "type": "image/png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "start_url": "/",
+  "background_color": "#0F172A",
+  "theme_color": "#10B981",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "vi",
+  "categories": ["agriculture", "utilities", "productivity"],
+  "description": "Ứng dụng AI đồng hành cùng hộ chăn nuôi gia cầm Việt Nam: Chẩn đoán bệnh qua ảnh, quản lý thu chi giọng nói và lịch vắc-xin tự động."
 }
