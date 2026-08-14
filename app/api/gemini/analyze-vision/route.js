@@ -133,13 +133,11 @@ export async function POST(req) {
     });
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.1,
-      },
-      systemInstruction: `Bạn là Hệ thống AI Chuyên gia Thú y Gia cầm (ChănNuôi AI), được huấn luyện theo chuẩn Merck Veterinary Manual, OIE/WOAH và The Poultry Site.
+    const candidateModels = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.7-flash'];
+    let result = null;
+    let lastErr = null;
+
+    const systemInstruction = `Bạn là Hệ thống AI Chuyên gia Thú y Gia cầm (ChănNuôi AI), được huấn luyện theo chuẩn Merck Veterinary Manual, OIE/WOAH và The Poultry Site.
 Nhiệm vụ: Phân tích 1-15 ảnh của CÙNG MỘT con gà — bao gồm cả ảnh gà sống lẫn ảnh mổ khám nội tạng — rồi trả về JSON chẩn đoán có cấu trúc.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -354,13 +352,34 @@ QUY TẮC 6 — KHÔNG KÊ ĐƠN THUỐC. Chỉ hướng dẫn an toàn sinh h�
   "biosafety_actions": [string],
   "what_to_photograph_next": [string],
   "disclaimer": "Cảnh báo sớm bằng AI — Không thay thế chẩn đoán của Bác sĩ Thú y."
-}`
-    });
+}`;
 
-    const result = await model.generateContent([
-      `Phân tích triệu chứng bệnh gà từ ${images.length} ảnh (cùng một con gà). Áp dụng đúng Knowledge Base và Zero-Hallucination Gate:`,
-      ...imageParts
-    ]);
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.1,
+          },
+          systemInstruction
+        });
+
+        result = await model.generateContent([
+          `Phân tích triệu chứng bệnh gà từ ${images.length} ảnh (cùng một con gà). Áp dụng đúng Knowledge Base và Zero-Hallucination Gate:`,
+          ...imageParts
+        ]);
+
+        if (result) break;
+      } catch (mErr) {
+        console.warn(`Model ${modelName} attempt failed:`, mErr.status || mErr.message);
+        lastErr = mErr;
+      }
+    }
+
+    if (!result) {
+      throw lastErr || new Error("Mọi mô hình AI đều bận hoặc hết hạn ngạch.");
+    }
 
     const responseText = result.response.text();
     let cleaned = responseText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
