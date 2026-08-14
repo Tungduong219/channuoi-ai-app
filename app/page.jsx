@@ -281,7 +281,8 @@ export default function HomeApp() {
                   ...item,
                   compressedBase64,
                   qualityStatus: qualityResult.isPassed ? 'passed' : 'warning',
-                  failReason: qualityResult.reason || ''
+                  failReason: qualityResult.reason || '',
+                  visualFeatures: qualityResult.visualFeatures || null
                 }
               : item
           )
@@ -319,7 +320,10 @@ export default function HomeApp() {
       const res = await fetch('/api/gemini/analyze-vision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: validImages.map((i) => i.compressedBase64) }),
+        body: JSON.stringify({
+          images: validImages.map((i) => i.compressedBase64),
+          visualFeatures: validImages.map((i) => i.visualFeatures).filter(Boolean)
+        }),
       });
       const data = await res.json();
       setVisionResult(data);
