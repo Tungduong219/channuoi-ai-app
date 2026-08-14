@@ -618,8 +618,20 @@ export default function HomeApp() {
                   }`}>
                     {visionResult.urgency_level === 'KHẨN CẤP' ? '🚨' : visionResult.urgency_level === 'CAO' ? '⚠️' : visionResult.urgency_level === 'TRUNG BÌNH' ? '🔶' : '✅'} {visionResult.urgency_level}
                   </span>
-                  <span className="text-xs text-gray-500 font-semibold">Gemini Vision 2.5 Flash · {visionResult.images_analyzed} ảnh</span>
+                  <span className="text-xs text-gray-500 font-semibold">Chẩn Đoán AI · {visionResult.images_analyzed} ảnh</span>
                 </div>
+
+                {/* AI Engine Status Badge */}
+                {visionResult.ai_engine_info && (
+                  <div className={`text-xs font-bold px-3 py-2 rounded-xl flex items-center justify-between gap-2 ${
+                    visionResult.ai_engine_info.is_live_ai 
+                      ? 'bg-[#E8F5E9] text-[#00695C] border border-[#00695C]/20' 
+                      : 'bg-[#FFF8E1] text-[#D97706] border border-[#D97706]/20'
+                  }`}>
+                    <span>{visionResult.ai_engine_info.status_badge}</span>
+                    <span className="text-[10px] opacity-80">{visionResult.ai_engine_info.engine_name}</span>
+                  </div>
+                )}
 
                 {/* analysis_status + confidence */}
                 {visionResult.analysis_status === 'INSUFFICIENT_DATA' && (

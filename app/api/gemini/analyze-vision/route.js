@@ -96,9 +96,14 @@ function getDynamicFallbackDiagnosis(imagesList = [], featuresList = []) {
     primary_suspicion: selected.disease,
     overall_confidence: imgCount >= 2 ? "TRUNG BÌNH" : "THẤP",
     urgency_level: "CAO",
-    biosafety_actions: selected.actions,
     what_to_photograph_next: ["Chụp cận mào tích & mắt", "Chụp bãi phân trên nền sáng rõ"],
-    disclaimer: "Cảnh báo sớm bằng AI — Phân tích thị giác thú y."
+    disclaimer: "Cảnh báo sớm bằng AI — Phân tích thị giác thú y.",
+    ai_engine_info: {
+      is_live_ai: false,
+      engine_name: "Cơ sở Dữ liệu 20 Bệnh Gia cầm",
+      status_badge: "🛡️ Phân Tích Thị Giác Thú Y",
+      quota_warning: null
+    }
   };
 }
 
@@ -401,6 +406,13 @@ QUY TẮC 6 — KHÔNG KÊ ĐƠN THUỐC. Chỉ hướng dẫn an toàn sinh h�
         return d;
       });
     }
+
+    parsed.ai_engine_info = {
+      is_live_ai: true,
+      engine_name: "Chẩn đoán Thú y Chuyên sâu",
+      status_badge: "⚡ AI Thú Y Trực Tuyến",
+      quota_warning: null
+    };
 
     return NextResponse.json(parsed);
 
