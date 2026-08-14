@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import AuthHeader from '@/components/AuthHeader';
 import FamilyShareModal from '@/components/FamilyShareModal';
+import AIScanningLoader from '@/components/AIScanningLoader';
+import DiseaseDetailModal from '@/components/DiseaseDetailModal';
 import TopBar from '@/components/TopBar';
 import BottomNav from '@/components/BottomNav';
 import MicModal from '@/components/MicModal';
@@ -24,7 +26,8 @@ import {
   UserCheck,
   ChevronRight,
   Sparkles,
-  Loader2
+  Loader2,
+  ChevronDown
 } from 'lucide-react';
 
 const CURRENT_FARM_ID = "trai_ga_nguyen_van_a";
@@ -39,6 +42,11 @@ export default function HomeApp() {
   const [userRole, setUserRole] = useState('OWNER'); // 'OWNER' | 'WORKER' | 'FAMILY_VIEWER'
   const [user, setUser] = useState(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Disease Modal & Accordion State
+  const [selectedDisease, setSelectedDisease] = useState(null);
+  const [isDiseaseModalOpen, setIsDiseaseModalOpen] = useState(false);
+  const [showDifferentialAccordion, setShowDifferentialAccordion] = useState(false);
 
   // URL Parameter Detection for Family Share Link (?view=family)
   useEffect(() => {
@@ -575,6 +583,11 @@ export default function HomeApp() {
                 </p>
               )}
 
+              {/* Custom Radar Scanning Loader (User Request) */}
+              {isAnalyzingVision && (
+                <AIScanningLoader message="Gemini 2.5 Flash đang soi bệnh tích & phân tích ảnh..." />
+              )}
+
               {/* Analyse button — enabled only when ≥1 passed */}
               <button
                 onClick={analyzeVision}
@@ -582,7 +595,7 @@ export default function HomeApp() {
                 className="w-full btn-secondary-cta flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isAnalyzingVision ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Gemini Vision đang phân tích...</>
+                  <><Loader2 className="w-5 h-5 animate-spin" /> AI đang quét bệnh tích...</>
                 ) : (
                   <><ShieldAlert className="w-5 h-5" /> Gửi AI Phân Tích ({visionImages.filter(i => i.qualityStatus === 'passed').length} ảnh)</>
                 )}
@@ -602,7 +615,7 @@ export default function HomeApp() {
                   }`}>
                     {visionResult.urgency_level === 'KHẨN CẤP' ? '🚨' : visionResult.urgency_level === 'CAO' ? '⚠️' : visionResult.urgency_level === 'TRUNG BÌNH' ? '🔶' : '✅'} {visionResult.urgency_level}
                   </span>
-                  <span className="text-xs text-gray-500 font-semibold">Gemini Vision 2.0 Flash · {visionResult.images_analyzed} ảnh</span>
+                  <span className="text-xs text-gray-500 font-semibold">Gemini Vision 2.5 Flash · {visionResult.images_analyzed} ảnh</span>
                 </div>
 
                 {/* analysis_status + confidence */}
@@ -622,39 +635,66 @@ export default function HomeApp() {
                   </div>
                 )}
 
-                {/* Primary suspicion */}
+                {/* Primary suspicion — Displayed in 1 Second */}
                 {visionResult.primary_suspicion && (
-                  <h3 className="text-base font-extrabold text-[#C62828]">
-                    🔴 Nghi ngờ chính: {visionResult.primary_suspicion}
-                  </h3>
+                  <div className="bg-[#FFF5F5] border border-[#C62828] p-3 rounded-xl">
+                    <span className="text-[10px] font-extrabold text-[#C62828] bg-white px-2 py-0.5 rounded-full uppercase border border-[#C62828]/30">
+                      🔴 Nghi Ngờ Khả Năng Cao Nhất
+                    </span>
+                    <h3 className="text-base font-extrabold text-[#C62828] mt-1">
+                      {visionResult.primary_suspicion}
+                    </h3>
+                  </div>
                 )}
 
-                {/* Differential diagnosis list */}
+                {/* Collapsible Accordion for Secondary Differential Diagnoses */}
                 {visionResult.differential_diagnosis?.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="font-bold text-sm text-gray-700">Chẩn đoán phân biệt:</p>
-                    {visionResult.differential_diagnosis.map((d, i) => (
-                      <div key={i} className={`rounded-xl px-3 py-2 text-xs border ${
-                        d.match_score === 'CAO' ? 'border-[#C62828] bg-[#FFF5F5]' :
-                        d.match_score === 'TRUNG BÌNH' ? 'border-[#FF8F00] bg-[#FFF8E7]' :
-                        'border-gray-200 bg-gray-50'
-                      }`}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-[#1A2332]">{d.disease_name}</span>
-                          <span className={`font-extrabold px-2 py-0.5 rounded-full text-[10px] ${
-                            d.match_score === 'CAO' ? 'bg-[#C62828] text-white' :
-                            d.match_score === 'TRUNG BÌNH' ? 'bg-[#FF8F00] text-[#1A2332]' :
-                            'bg-gray-200 text-gray-600'
-                          }`}>{d.match_score}</span>
-                        </div>
-                        {d.matching_symptoms?.length > 0 && (
-                          <p className="text-gray-600">Khớp: {d.matching_symptoms.join(', ')}</p>
-                        )}
-                        {d.ruling_out_reason && (
-                          <p className="text-gray-400 italic mt-0.5">Loại trừ: {d.ruling_out_reason}</p>
-                        )}
+                  <div className="space-y-2 border-t border-gray-100 pt-3">
+                    <button
+                      onClick={() => setShowDifferentialAccordion(!showDifferentialAccordion)}
+                      className="w-full flex items-center justify-between text-xs font-extrabold text-[#00695C] bg-[#F0FAF9] p-2.5 rounded-xl border border-[#00695C]/20 hover:bg-[#E0F2F1] transition-all"
+                    >
+                      <span>{showDifferentialAccordion ? '▼ Thu gọn các bệnh nghi ngờ phụ' : '▶ Xem 2-3 khả năng bệnh chẩn đoán phân biệt'}</span>
+                      <span className="bg-[#00695C] text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                        {visionResult.differential_diagnosis.length} bệnh
+                      </span>
+                    </button>
+
+                    {showDifferentialAccordion && (
+                      <div className="space-y-2 pt-1 animate-count-up">
+                        {visionResult.differential_diagnosis.map((d, i) => (
+                          <div
+                            key={i}
+                            onClick={() => { setSelectedDisease(d); setIsDiseaseModalOpen(true); }}
+                            className={`rounded-xl p-3 text-xs border cursor-pointer hover:shadow-md transition-all ${
+                              d.match_score === 'CAO' ? 'border-[#C62828] bg-[#FFF5F5]' :
+                              d.match_score === 'TRUNG BÌNH' ? 'border-[#FF8F00] bg-[#FFF8E7]' :
+                              'border-gray-200 bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-bold text-[#1A2332] flex items-center gap-1">
+                                {d.disease_name} <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                              </span>
+                              <span className={`font-extrabold px-2 py-0.5 rounded-full text-[10px] ${
+                                d.match_score === 'CAO' ? 'bg-[#C62828] text-white' :
+                                d.match_score === 'TRUNG BÌNH' ? 'bg-[#FF8F00] text-[#1A2332]' :
+                                'bg-gray-200 text-gray-600'
+                              }`}>{d.match_score}</span>
+                            </div>
+                            {d.matching_symptoms?.length > 0 && (
+                              <p className="text-gray-600">Khớp: {d.matching_symptoms.join(', ')}</p>
+                            )}
+                            {d.ruling_out_reason && (
+                              <p className="text-gray-400 italic mt-0.5">Loại trừ: {d.ruling_out_reason}</p>
+                            )}
+                            <span className="text-[10px] text-[#00695C] font-bold mt-1 block text-right">
+                              Bấm để xem cẩm nang điều trị ➔
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
 
@@ -869,6 +909,12 @@ export default function HomeApp() {
           </div>
         )}
       </div>
+
+      <DiseaseDetailModal
+        disease={selectedDisease}
+        isOpen={isDiseaseModalOpen}
+        onClose={() => setIsDiseaseModalOpen(false)}
+      />
 
       <BottomNav
         activeTab={activeTab}

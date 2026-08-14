@@ -131,13 +131,44 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
           >
             <Mic className="w-10 h-10" />
           </button>
-          <span className="text-xs font-semibold mt-3 text-gray-700">
-            {isListening ? 'Đang lắng nghe... Hãy nói ngay' : 'Bấm vào nút Mic để nói'}
-          </span>
+          
+          {/* Audio Waveform Visualizer Animation */}
+          {isListening ? (
+            <div className="flex items-center justify-center gap-1.5 my-3 h-8">
+              <div className="w-1.5 bg-[#FF8F00] h-6 rounded-full animate-bounce"></div>
+              <div className="w-1.5 bg-[#00695C] h-8 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+              <div className="w-1.5 bg-[#C62828] h-4 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              <div className="w-1.5 bg-[#00695C] h-7 rounded-full animate-bounce [animation-delay:0.1s]"></div>
+              <div className="w-1.5 bg-[#FF8F00] h-5 rounded-full animate-bounce [animation-delay:0.3s]"></div>
+            </div>
+          ) : (
+            <span className="text-xs font-semibold mt-3 text-gray-700">
+              Bấm vào nút Mic để nói
+            </span>
+          )}
+        </div>
+
+        {/* Voice Presets / Quick Shortcuts */}
+        <div className="mb-3 space-y-1.5">
+          <span className="text-[11px] font-bold text-gray-500 block">💡 Nói mẫu hoặc bấm chọn nhanh:</span>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => { setTranscript("Mua 5 bao cám 1 triệu 750 nghìn"); handleParseVoice("Mua 5 bao cám 1 triệu 750 nghìn"); }}
+              className="text-[11px] bg-[#F0FAF9] hover:bg-[#00695C] hover:text-white text-[#00695C] border border-[#00695C]/30 px-2.5 py-1 rounded-full font-bold transition-all active:scale-95"
+            >
+              🛒 Mua 5 bao cám 1.750k
+            </button>
+            <button
+              onClick={() => { setTranscript("Bán 100kg gà 5 triệu 400 nghìn"); handleParseVoice("Bán 100kg gà 5 triệu 400 nghìn"); }}
+              className="text-[11px] bg-[#E8F5E9] hover:bg-[#2E7D32] hover:text-white text-[#2E7D32] border border-[#2E7D32]/30 px-2.5 py-1 rounded-full font-bold transition-all active:scale-95"
+            >
+              💵 Bán 100kg gà 5.400k
+            </button>
+          </div>
         </div>
 
         {/* Manual Input / Transcript Display */}
-        <div className="mt-4">
+        <div className="mt-2">
           <input
             type="text"
             value={transcript}
