@@ -549,32 +549,106 @@ export default function HomeApp() {
             {/* Result card */}
             {visionResult && (
               <div className="bg-white p-5 rounded-2xl border-2 border-[#FF8F00] shadow-md space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold bg-[#C62828] text-white px-3 py-1 rounded-full uppercase">
-                    Mức độ: {visionResult.urgency_level}
+                {/* Header: status + urgency */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className={`text-xs font-extrabold px-3 py-1 rounded-full uppercase ${
+                    visionResult.urgency_level === 'KHẨN CẤP' ? 'bg-[#7B0000] text-white' :
+                    visionResult.urgency_level === 'CAO' ? 'bg-[#C62828] text-white' :
+                    visionResult.urgency_level === 'TRUNG BÌNH' ? 'bg-[#FF8F00] text-[#1A2332]' :
+                    'bg-[#2E7D32] text-white'
+                  }`}>
+                    {visionResult.urgency_level === 'KHẨN CẤP' ? '🚨' : visionResult.urgency_level === 'CAO' ? '⚠️' : visionResult.urgency_level === 'TRUNG BÌNH' ? '🔶' : '✅'} {visionResult.urgency_level}
                   </span>
-                  <span className="text-xs text-gray-500 font-semibold">Gemini Vision 2.0 Flash</span>
+                  <span className="text-xs text-gray-500 font-semibold">Gemini Vision 2.0 Flash · {visionResult.images_analyzed} ảnh</span>
                 </div>
 
-                {/* images_analyzed + confidence_note */}
-                {visionResult.images_analyzed > 0 && (
+                {/* analysis_status + confidence */}
+                {visionResult.analysis_status === 'INSUFFICIENT_DATA' && (
+                  <div className="text-xs font-semibold text-[#FF8F00] bg-[#FFF3CD] px-3 py-2 rounded-lg">
+                    📷 Ảnh chưa đủ rõ để chẩn đoán chắc chắn. Xem gợi ý chụp thêm bên dưới.
+                  </div>
+                )}
+                {visionResult.analysis_status === 'HEALTHY' && (
+                  <div className="text-xs font-semibold text-[#2E7D32] bg-[#E8F5E9] px-3 py-2 rounded-lg">
+                    ✅ Gà trông bình thường, chưa thấy dấu hiệu bệnh rõ ràng.
+                  </div>
+                )}
+                {visionResult.overall_confidence && visionResult.analysis_status === 'DIAGNOSED' && (
                   <div className="text-xs font-semibold text-[#00695C] bg-[#F0FAF9] px-3 py-1.5 rounded-lg">
-                    📷 Đã phân tích {visionResult.images_analyzed} ảnh — Độ tin cậy: <strong>{visionResult.confidence_note}</strong>
+                    Độ tin cậy phân tích: <strong>{visionResult.overall_confidence}</strong>
                   </div>
                 )}
 
-                <h3 className="text-lg font-extrabold text-[#C62828]">{visionResult.suspected_condition}</h3>
+                {/* Primary suspicion */}
+                {visionResult.primary_suspicion && (
+                  <h3 className="text-base font-extrabold text-[#C62828]">
+                    🔴 Nghi ngờ chính: {visionResult.primary_suspicion}
+                  </h3>
+                )}
 
-                <div className="text-sm space-y-1">
-                  <p className="font-bold text-gray-700">Triệu chứng quan sát được:</p>
-                  <ul className="list-disc list-inside text-xs text-gray-600">
-                    {visionResult.symptoms_detected?.map((s, i) => <li key={i}>{s}</li>)}
-                  </ul>
-                </div>
+                {/* Differential diagnosis list */}
+                {visionResult.differential_diagnosis?.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="font-bold text-sm text-gray-700">Chẩn đoán phân biệt:</p>
+                    {visionResult.differential_diagnosis.map((d, i) => (
+                      <div key={i} className={`rounded-xl px-3 py-2 text-xs border ${
+                        d.match_score === 'CAO' ? 'border-[#C62828] bg-[#FFF5F5]' :
+                        d.match_score === 'TRUNG BÌNH' ? 'border-[#FF8F00] bg-[#FFF8E7]' :
+                        'border-gray-200 bg-gray-50'
+                      }`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-[#1A2332]">{d.disease_name}</span>
+                          <span className={`font-extrabold px-2 py-0.5 rounded-full text-[10px] ${
+                            d.match_score === 'CAO' ? 'bg-[#C62828] text-white' :
+                            d.match_score === 'TRUNG BÌNH' ? 'bg-[#FF8F00] text-[#1A2332]' :
+                            'bg-gray-200 text-gray-600'
+                          }`}>{d.match_score}</span>
+                        </div>
+                        {d.matching_symptoms?.length > 0 && (
+                          <p className="text-gray-600">Khớp: {d.matching_symptoms.join(', ')}</p>
+                        )}
+                        {d.ruling_out_reason && (
+                          <p className="text-gray-400 italic mt-0.5">Loại trừ: {d.ruling_out_reason}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                <div className="text-xs text-gray-700 bg-gray-50 p-3 rounded-xl">
-                  <span className="font-bold">Khuyến nghị an toàn sinh học:</span> {visionResult.action_recommendation}
-                </div>
+                {/* Observed symptoms */}
+                {visionResult.observed_symptoms?.length > 0 && (
+                  <div className="text-sm space-y-1">
+                    <p className="font-bold text-gray-700">Triệu chứng quan sát được:</p>
+                    <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5">
+                      {visionResult.observed_symptoms.map((s, i) => (
+                        <li key={i}>
+                          <span className="font-semibold">[{s.location}]</span> {s.symptom}
+                          {s.severity === 'NẶNG' && <span className="text-[#C62828] font-bold ml-1">(Nặng)</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Biosafety actions */}
+                {visionResult.biosafety_actions?.length > 0 && (
+                  <div className="text-xs text-gray-700 bg-gray-50 p-3 rounded-xl space-y-1">
+                    <span className="font-bold block">🛡️ Hướng dẫn an toàn sinh học:</span>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {visionResult.biosafety_actions.map((a, i) => <li key={i}>{a}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {/* What to photograph next */}
+                {visionResult.what_to_photograph_next?.length > 0 && (
+                  <div className="text-xs text-[#00695C] bg-[#F0FAF9] p-3 rounded-xl space-y-1">
+                    <span className="font-bold block">📷 Nên chụp thêm:</span>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {visionResult.what_to_photograph_next.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="p-3 bg-[#FFF3CD] rounded-xl text-xs text-[#1A2332] font-semibold flex items-start gap-2">
                   <AlertTriangle className="w-5 h-5 text-[#FF8F00] shrink-0" />
@@ -589,6 +663,7 @@ export default function HomeApp() {
                 </a>
               </div>
             )}
+
           </div>
         )}
 
