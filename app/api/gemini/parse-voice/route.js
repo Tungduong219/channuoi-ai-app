@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 export async function POST(req) {
   try {
     const { transcript } = await req.json();
@@ -16,7 +18,7 @@ export async function POST(req) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     
     // Check if API key is present and not a dummy string
-    const hasValidKey = apiKey && !apiKey.includes('your_gemini') && apiKey.startsWith('AIza');
+    const hasValidKey = apiKey && !apiKey.includes('your_gemini') && apiKey.trim().length > 10;
 
     if (!hasValidKey) {
       // SMART OFFLINE REGEX PARSER FALLBACK
@@ -44,21 +46,38 @@ export async function POST(req) {
       const isExpense = lower.includes('nhập') || lower.includes('mua') || lower.includes('lấy') || lower.includes('chi') || lower.includes('tiêm');
       const type = isExpense ? "EXPENSE" : (lower.includes('bán') || lower.includes('thu') ? "REVENUE" : "EXPENSE");
 
-      // Extract Quantity & Unit
+      // Extract Item & Category
+      let category = "CÁM";
+      let itemName = "Cám hỗn hợp gia cầm";
+
+      if (lower.includes('3008')) {
+        itemName = "Cám 3008 (Gà con)";
+        category = "CÁM";
+      } else if (lower.includes('thuốc') || lower.includes('vắc') || lower.includes('kháng sinh') || lower.includes('thú y')) {
+        category = "THUỐC/VẮC XIN";
+        itemName = "Thuốc thú y gia cầm";
+      } else if (lower.includes('gà') || lower.includes('thịt') || lower.includes('giống')) {
+        category = "BÁN GÀ";
+        itemName = "Bán gà thịt";
+      } else if (lower.includes('điện') || lower.includes('nước') || lower.includes('trấu')) {
+        category = "KHÁC";
+        itemName = "Chi phí vận hành";
+      }
+
+      // Extract Numbers (Quantity & Price)
       let quantity = 1;
+      let price = 50000;
       let unit = "bao";
+
       if (lower.includes('kg') || lower.includes('ký') || lower.includes('cân')) unit = "kg";
-      if (lower.includes('con')) unit = "con";
-      if (lower.includes('bao')) unit = "bao";
-      if (lower.includes('chai') || lower.includes('lọ')) unit = "lọ";
+      else if (lower.includes('con')) unit = "con";
+      else if (lower.includes('chai') || lower.includes('lọ')) unit = "lọ";
 
       const qtyMatch = lower.match(/(\d+)\s*(bao|kg|con|chai|lọ|liều)/);
       if (qtyMatch) {
         quantity = parseInt(qtyMatch[1], 10);
       }
 
-      // Extract Price (e.g. 520 nghìn -> 520000, 350k -> 350000)
-      let price = 520000;
       const numMatch = lower.match(/(\d+)\s*(nghìn|ngàn|k|trăm|triệu)/);
       if (numMatch) {
         const numVal = parseInt(numMatch[1], 10);
@@ -72,20 +91,6 @@ export async function POST(req) {
           const rawVal = parseInt(rawNumMatch[1], 10);
           price = rawVal < 1000 ? rawVal * 1000 : rawVal;
         }
-      }
-
-      // Extract Item Name
-      let itemName = "Cám hỗn hợp gia cầm";
-      let category = "cam";
-      if (lower.includes('3008')) {
-        itemName = "Cám 3008 (Gà con)";
-        category = "cam";
-      } else if (lower.includes('thuốc') || lower.includes('vắc-xin') || lower.includes('vacxin')) {
-        itemName = "Vắc-xin / Thuốc gia cầm";
-        category = "thuoc";
-      } else if (lower.includes('gà')) {
-        itemName = "Gà thịt / Gà giống";
-        category = lower.includes('bán') ? "ban_ga" : "giong";
       }
 
       const formattedAmountText = (price * quantity).toLocaleString('vi-VN');

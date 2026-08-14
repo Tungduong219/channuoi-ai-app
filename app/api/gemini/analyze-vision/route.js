@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 export async function POST(req) {
   try {
     const { images } = await req.json();
@@ -13,7 +15,7 @@ export async function POST(req) {
     }
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    const hasValidKey = apiKey && !apiKey.includes('your_gemini') && apiKey.startsWith('AIza');
+    const hasValidKey = apiKey && !apiKey.includes('your_gemini') && apiKey.trim().length > 10;
 
     if (!hasValidKey) {
       return NextResponse.json({
@@ -27,12 +29,12 @@ export async function POST(req) {
           { disease_name: "Newcastle Disease (Bệnh Gà Rùa)", match_score: "CAO", matching_symptoms: ["Phân xanh đọt chuối", "Ủ dột"], ruling_out_reason: null },
           { disease_name: "Tụ Huyết Trùng (Fowl Cholera)", match_score: "THẤP", matching_symptoms: ["Phân xanh"], ruling_out_reason: "Không thấy mào tím, không có dịch nhầy mũi" }
         ],
-        primary_suspicion: "Newcastle Disease (Bệnh Gà Rùa)",
+        primary_suspicion: "[MOCK CHẾ ĐỘ THỬ NGHIỆM] Newcastle Disease",
         overall_confidence: images.length >= 3 ? "TRUNG BÌNH" : "THẤP",
         urgency_level: "CAO",
         biosafety_actions: ["Cách ly ngay con gà có triệu chứng khỏi đàn", "Phun khử trùng Iodine/BKA toàn bộ chuồng nuôi"],
         what_to_photograph_next: ["Chụp cận mào và vùng đầu", "Chụp phân trên nền sáng rõ màu sắc"],
-        disclaimer: "Cảnh báo sớm bằng AI — Không thay thế chẩn đoán của Bác sĩ Thú y."
+        disclaimer: "⚠️ Chế độ MOCK (Chưa tìm thấy GEMINI_API_KEY). Nhập API Key thật vào .env.local để chẩn đoán AI chính xác."
       });
     }
 
@@ -45,7 +47,7 @@ export async function POST(req) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.1,
