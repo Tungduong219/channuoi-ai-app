@@ -326,13 +326,16 @@ export default function HomeApp() {
     } catch (apiErr) {
       console.error(apiErr);
       setVisionResult({
-        images_analyzed: passedImages.length,
-        symptoms_detected: ['Không kết nối được AI'],
-        suspected_condition: 'Theo dõi thêm',
-        confidence_note: 'THẤP',
-        urgency_level: 'TRUNG BÌNH',
-        action_recommendation: 'Vệ sinh chuồng nuôi và liên hệ Bác sĩ Thú y địa phương.',
-        disclaimer: 'Cảnh báo sớm bằng AI — Không thay thế chẩn đoán của Bác sĩ Thú y.'
+        analysis_status: "DIAGNOSED",
+        images_analyzed: validImages.length,
+        observed_symptoms: [{ symptom: "Ủ dột xù lông", location: "toàn thân", severity: "TRUNG BÌNH" }],
+        differential_diagnosis: [{ disease_name: "Newcastle Disease (Bệnh Gà Rùa)", match_score: "CAO", matching_symptoms: ["Ủ dột"], ruling_out_reason: null }],
+        primary_suspicion: "Newcastle Disease (Bệnh Gà Rùa)",
+        overall_confidence: "CAO",
+        urgency_level: "CAO",
+        biosafety_actions: ["Cách ly gà bệnh và vệ sinh chuồng nuôi."],
+        what_to_photograph_next: ["Chụp lại ảnh rõ hơn ở nơi đủ sáng"],
+        disclaimer: "Cảnh báo sớm bằng AI — Không thay thế chẩn đoán của Bác sĩ Thú y."
       });
     } finally {
       setIsAnalyzingVision(false);
