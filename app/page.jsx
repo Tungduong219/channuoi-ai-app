@@ -63,6 +63,8 @@ export default function HomeApp() {
   const [flocks, setFlocks] = useState([]);
   const [selectedFlockId, setSelectedFlockId] = useState(null);
   const [flockVaccines, setFlockVaccines] = useState([]);
+  const [showUpcomingVaccines, setShowUpcomingVaccines] = useState(false);
+  const [showCompletedVaccines, setShowCompletedVaccines] = useState(false);
 
   // Disease Modal & Vision State
   const [selectedDisease, setSelectedDisease] = useState(null);
@@ -690,17 +692,17 @@ export default function HomeApp() {
                   </div>
                 )}
 
-                {/* Personalized Vaccine Schedules List */}
-                <div className="bg-white p-4 rounded-3xl border border-gray-200 shadow-sm space-y-3">
+                {/* Personalized Vaccine Schedules List (Compact & Focused Hero Card) */}
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="font-extrabold text-sm text-[#1A2332] flex items-center gap-1.5">
                       <Calendar className="w-4 h-4 text-[#FF8F00]" />
-                      Lịch Tiêm Vắc-xin Cá Nhân Hóa ({flockVaccines.length} mũi)
+                      Lịch Tiêm Vắc-xin Cá Nhân Hóa ({safeVaccines.length} mũi)
                     </h3>
                   </div>
 
-                  {flockVaccines.length === 0 ? (
-                    <div className="text-center py-6 space-y-2 text-gray-500 text-xs">
+                  {safeVaccines.length === 0 ? (
+                    <div className="bg-white p-6 rounded-3xl border border-gray-200 text-center space-y-2 text-gray-500 text-xs shadow-sm">
                       <p>Chưa có lịch vắc-xin cho đàn này.</p>
                       <button
                         onClick={async () => {
@@ -728,74 +730,224 @@ export default function HomeApp() {
                             }
                           }
                         }}
-                        className="text-xs text-[#00695C] font-bold bg-[#F0FAF9] px-3 py-1.5 rounded-xl border border-[#00695C]/20"
+                        className="text-xs text-[#00695C] font-bold bg-[#F0FAF9] px-3.5 py-2 rounded-xl border border-[#00695C]/20 hover:bg-[#E0F2F1] transition-colors inline-block"
                       >
                         🤖 Tạo Lịch Tiêm Bằng AI Ngay
                       </button>
                     </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {flockVaccines.map(vac => {
-                        const scheduledDateStr = getVaccineDate(currentFlock?.startDate, vac.dayAge);
-                        const currentAge = getAgeInDays(currentFlock?.startDate);
-                        const isDue = currentAge >= vac.dayAge && !vac.isCompleted;
+                  ) : (() => {
+                    const currentFlockAge = getAgeInDays(currentFlock?.startDate);
+                    const completedList = safeVaccines
+                      .filter(v => v && v.isCompleted)
+                      .sort((a, b) => (Number(a.dayAge) || 0) - (Number(b.dayAge) || 0));
+                    const uncompletedList = safeVaccines
+                      .filter(v => v && !v.isCompleted)
+                      .sort((a, b) => (Number(a.dayAge) || 0) - (Number(b.dayAge) || 0));
 
-                        return (
-                          <div
-                            key={vac.scheduleId}
-                            onClick={() => handleToggleVaccine(vac.scheduleId, vac.isCompleted)}
-                            className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                              vac.isCompleted
-                                ? 'bg-[#F0FAF9]/60 border-[#26A69A]/30 opacity-75'
-                                : isDue
-                                ? 'bg-[#FFF8E7] border-[#FF8F00] shadow-sm ring-2 ring-[#FF8F00]/20'
-                                : 'bg-white border-gray-200'
-                            }`}
-                          >
-                            <div className="space-y-1 flex-1 pr-3">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                                  vac.isCompleted
-                                    ? 'bg-[#2E7D32] text-white'
-                                    : isDue
-                                    ? 'bg-[#FF8F00] text-[#1A2332] animate-pulse'
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {vac.dayAge} ngày tuổi
-                                </span>
-                                <span className="text-[11px] font-bold text-gray-500">
-                                  📅 {scheduledDateStr}
-                                </span>
-                                {vac.isMandatory && (
-                                  <span className="text-[9px] bg-red-100 text-red-700 font-extrabold px-1.5 py-0.5 rounded">
-                                    Bắt buộc
-                                  </span>
-                                )}
-                              </div>
+                    // Next due vaccine: earliest overdue or earliest upcoming
+                    const overdueList = uncompletedList.filter(v => (Number(v.dayAge) || 0) <= currentFlockAge);
+                    const heroVaccine = overdueList.length > 0 ? overdueList[0] : (uncompletedList.length > 0 ? uncompletedList[0] : null);
+                    const remainingUpcoming = uncompletedList.filter(v => v.scheduleId !== heroVaccine?.scheduleId);
 
-                              <h4 className={`font-extrabold text-xs ${vac.isCompleted ? 'line-through text-gray-500' : 'text-[#1A2332]'}`}>
-                                {vac.diseaseName} • <span className="font-semibold text-gray-600">{vac.vaccineType}</span>
-                              </h4>
+                    const isOverdueOrToday = heroVaccine ? currentFlockAge >= (Number(heroVaccine.dayAge) || 0) : false;
+                    const heroDateStr = heroVaccine ? getVaccineDate(currentFlock?.startDate, heroVaccine.dayAge) : '';
+                    const daysDiff = heroVaccine ? (Number(heroVaccine.dayAge) || 0) - currentFlockAge : 0;
 
-                              <div className="text-[11px] text-gray-500 flex items-center gap-2">
-                                <span>Đường dùng: <strong>{vac.method}</strong></span>
-                                {vac.notes && <span>• {vac.notes}</span>}
+                    return (
+                      <div className="space-y-3">
+                        {/* 1. HERO CARD: Next / Due Vaccine */}
+                        {heroVaccine ? (
+                          <div className={`p-5 rounded-3xl border-2 shadow-lg transition-all ${
+                            isOverdueOrToday
+                              ? 'bg-gradient-to-br from-[#FFF8E7] via-white to-[#FFF3E0] border-[#FF8F00] ring-4 ring-[#FF8F00]/15'
+                              : 'bg-gradient-to-br from-[#F0FAF9] via-white to-[#E0F2F1] border-[#00695C] ring-4 ring-[#00695C]/15'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`px-3 py-1 rounded-full text-xs font-black uppercase flex items-center gap-1.5 shadow-sm ${
+                                isOverdueOrToday
+                                  ? 'bg-[#C62828] text-white animate-pulse'
+                                  : 'bg-[#00695C] text-white'
+                              }`}>
+                                {isOverdueOrToday ? '⚠️ CẦN TIÊM HÔM NAY / ĐẾN HẠN' : '🔔 MŨI TIÊM TIẾP THEO (GẦN NHẤT)'}
+                              </span>
+                              <span className="text-xs font-extrabold text-gray-500">
+                                {heroVaccine.dayAge} ngày tuổi
+                              </span>
+                            </div>
+
+                            <div className="space-y-0.5 my-3">
+                              <h3 className="text-lg sm:text-xl font-black text-[#1A2332]">
+                                🐔 {heroVaccine.diseaseName}
+                              </h3>
+                              <div className="text-xs sm:text-sm font-bold text-gray-600">
+                                Loại vắc-xin: <span className="text-[#00695C] font-extrabold">{heroVaccine.vaccineType}</span>
                               </div>
                             </div>
 
-                            {/* Checkbox */}
-                            <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                              vac.isCompleted
-                                ? 'bg-[#2E7D32] border-[#2E7D32] text-white'
-                                : 'border-gray-300 bg-white hover:border-[#00695C]'
-                            }`}>
-                              {vac.isCompleted && <Check className="w-4 h-4 stroke-[3]" />}
+                            {/* 3 Key Badges */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-3">
+                              <div className="bg-white/90 p-2.5 rounded-2xl border border-gray-200">
+                                <span className="text-[10px] text-gray-400 font-bold block">📅 Ngày tiêm</span>
+                                <span className="text-xs font-extrabold text-[#1A2332]">{heroDateStr}</span>
+                              </div>
+                              <div className="bg-white/90 p-2.5 rounded-2xl border border-gray-200">
+                                <span className="text-[10px] text-gray-400 font-bold block">⏳ Thời hạn</span>
+                                <span className={`text-xs font-extrabold ${isOverdueOrToday ? 'text-[#C62828]' : 'text-[#00695C]'}`}>
+                                  {isOverdueOrToday ? '⚡ Đến hạn tiêm ngay' : `Còn ${daysDiff} ngày nữa`}
+                                </span>
+                              </div>
+                              <div className="col-span-2 sm:col-span-1 bg-white/90 p-2.5 rounded-2xl border border-gray-200">
+                                <span className="text-[10px] text-gray-400 font-bold block">💧 Đường dùng</span>
+                                <span className="text-xs font-extrabold text-[#00695C]">{heroVaccine.method}</span>
+                              </div>
                             </div>
+
+                            {heroVaccine.notes && (
+                              <p className="text-xs text-gray-600 italic bg-white/70 p-2.5 rounded-xl border border-gray-100 mb-3">
+                                💡 <strong>Lưu ý:</strong> {heroVaccine.notes}
+                              </p>
+                            )}
+
+                            {/* 1-Tap CTA */}
+                            <button
+                              onClick={() => handleToggleVaccine(heroVaccine.scheduleId, false)}
+                              className="w-full min-h-[48px] btn-primary-cta flex items-center justify-center gap-2 text-xs font-extrabold shadow-md active:scale-95 transition-all"
+                            >
+                              <CheckCircle2 className="w-5 h-5 text-[#FF8F00]" />
+                              <span>ĐÃ TIÊM XONG MŨI NÀY (Bấm để ghi nhận)</span>
+                            </button>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        ) : (
+                          <div className="p-6 rounded-3xl bg-[#E8F5E9] border-2 border-[#2E7D32] text-center space-y-2 shadow-sm">
+                            <div className="text-4xl">🎉</div>
+                            <h3 className="text-base font-extrabold text-[#2E7D32]">Đàn Gà Đã Hoàn Thành 100% Lịch Tiêm!</h3>
+                            <p className="text-xs text-gray-600">Toàn bộ các mũi tiêm phòng theo chuẩn thú y đã được thực hiện đầy đủ.</p>
+                          </div>
+                        )}
+
+                        {/* 2. ACCORDION: Upcoming Vaccines */}
+                        {remainingUpcoming.length > 0 && (
+                          <div className="rounded-3xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                            <button
+                              type="button"
+                              onClick={() => setShowUpcomingVaccines(!showUpcomingVaccines)}
+                              className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-[#FFF8E7] text-[#FF8F00] flex items-center justify-center font-bold text-sm">
+                                  ⏳
+                                </div>
+                                <div>
+                                  <h4 className="font-extrabold text-xs text-[#1A2332]">
+                                    Các Mũi Tiêm Sắp Tới ({remainingUpcoming.length} mũi)
+                                  </h4>
+                                  <span className="text-[10px] text-gray-400 font-semibold">
+                                    {showUpcomingVaccines ? 'Chạm để thu gọn Ẩn đi' : 'Chạm để mở xem toàn bộ'}
+                                  </span>
+                                </div>
+                              </div>
+                              <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${showUpcomingVaccines ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showUpcomingVaccines && (
+                              <div className="p-3 pt-0 space-y-2.5 border-t border-gray-100 divide-y divide-gray-100">
+                                {remainingUpcoming.map(vac => {
+                                  const vacDate = getVaccineDate(currentFlock?.startDate, vac.dayAge);
+                                  return (
+                                    <div key={vac.scheduleId} className="pt-3 first:pt-0 flex items-center justify-between">
+                                      <div className="space-y-1 flex-1 pr-3">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[10px] font-extrabold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                                            {vac.dayAge} ngày tuổi
+                                          </span>
+                                          <span className="text-[11px] font-bold text-gray-500">📅 {vacDate}</span>
+                                          {vac.isMandatory && (
+                                            <span className="text-[9px] bg-red-100 text-red-700 font-extrabold px-1.5 py-0.5 rounded">
+                                              Bắt buộc
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h5 className="font-extrabold text-xs text-[#1A2332]">
+                                          {vac.diseaseName} • <span className="font-semibold text-gray-500">{vac.vaccineType}</span>
+                                        </h5>
+                                        <p className="text-[11px] text-gray-500">Đường dùng: <strong>{vac.method}</strong></p>
+                                      </div>
+
+                                      <button
+                                        onClick={() => handleToggleVaccine(vac.scheduleId, false)}
+                                        className="w-8 h-8 rounded-xl border-2 border-gray-300 hover:border-[#00695C] bg-white flex items-center justify-center flex-shrink-0 transition-colors"
+                                        title="Đánh dấu hoàn thành"
+                                      >
+                                        <Check className="w-4 h-4 text-transparent hover:text-gray-400" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 3. ACCORDION: Completed Vaccines History */}
+                        {completedList.length > 0 && (
+                          <div className="rounded-3xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                            <button
+                              type="button"
+                              onClick={() => setShowCompletedVaccines(!showCompletedVaccines)}
+                              className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-[#E8F5E9] text-[#2E7D32] flex items-center justify-center font-bold text-sm">
+                                  ✅
+                                </div>
+                                <div>
+                                  <h4 className="font-extrabold text-xs text-[#2E7D32]">
+                                    Lịch Sử Đã Tiêm Xong ({completedList.length} mũi)
+                                  </h4>
+                                  <span className="text-[10px] text-gray-400 font-semibold">
+                                    {showCompletedVaccines ? 'Chạm để thu gọn Ẩn đi' : 'Chạm để mở xem lại'}
+                                  </span>
+                                </div>
+                              </div>
+                              <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${showCompletedVaccines ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showCompletedVaccines && (
+                              <div className="p-3 pt-0 space-y-2.5 border-t border-gray-100 divide-y divide-gray-100">
+                                {completedList.map(vac => {
+                                  const vacDate = getVaccineDate(currentFlock?.startDate, vac.dayAge);
+                                  return (
+                                    <div key={vac.scheduleId} className="pt-3 first:pt-0 flex items-center justify-between opacity-80">
+                                      <div className="space-y-1 flex-1 pr-3">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[10px] font-extrabold bg-[#2E7D32]/15 text-[#2E7D32] px-2 py-0.5 rounded-full">
+                                            {vac.dayAge} ngày tuổi
+                                          </span>
+                                          <span className="text-[11px] font-bold text-gray-500">📅 {vacDate}</span>
+                                        </div>
+                                        <h5 className="font-extrabold text-xs text-gray-600 line-through">
+                                          {vac.diseaseName} • <span className="font-semibold">{vac.vaccineType}</span>
+                                        </h5>
+                                        <p className="text-[11px] text-gray-400">Đã tiêm • Đường dùng: {vac.method}</p>
+                                      </div>
+
+                                      <button
+                                        onClick={() => handleToggleVaccine(vac.scheduleId, true)}
+                                        className="w-8 h-8 rounded-xl bg-[#2E7D32] text-white flex items-center justify-center flex-shrink-0 shadow-sm"
+                                        title="Bỏ đánh dấu hoàn thành"
+                                      >
+                                        <Check className="w-4 h-4 stroke-[3]" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}
