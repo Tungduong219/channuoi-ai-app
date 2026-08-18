@@ -184,6 +184,23 @@ export default function HomeApp() {
       console.warn("AI vaccine generate fallback:", e);
     }
 
+    // Automatically record Seed Purchase Expense in Sổ Thu Chi if unitPrice > 0
+    if (flockData.unitPrice && Number(flockData.unitPrice) > 0) {
+      const initialSeedCost = Number(flockData.initialCount || 1000) * Number(flockData.unitPrice);
+      await addHealthLog(activeFarmId, {
+        flockId: newFlock.flockId,
+        flockName: newFlock.flockName,
+        date: flockData.startDate || new Date().toLocaleDateString('vi-VN'),
+        logType: 'EXPENSE',
+        category: 'giong',
+        amount: initialSeedCost,
+        mortalityCount: 0,
+        notes: `Nhập giống ${flockData.breed || 'Gà'} (${(flockData.initialCount || 1000).toLocaleString('vi-VN')} con x ${(flockData.unitPrice).toLocaleString('vi-VN')}đ/con)`,
+        createdVia: 'VOICE_AI',
+        createdBy: user?.name || 'Chủ Hộ'
+      });
+    }
+
     // Refresh farm profile
     const updatedFarm = await getFarm(activeFarmId);
     if (updatedFarm) setCurrentFarm(updatedFarm);
