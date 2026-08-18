@@ -9,10 +9,22 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
   const [isLoading, setIsLoading] = useState(false);
   const [parseResult, setParseResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const recognitionRef = useRef(null);
   const silenceTimerRef = useRef(null);
   const accumulatedTextRef = useRef('');
+
+  // Handle ESC Key & Close Cleanup
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -24,6 +36,11 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
       accumulatedTextRef.current = '';
     }
   }, [isOpen]);
+
+  const handleClose = () => {
+    stopRecordingCleanup();
+    onClose();
+  };
 
   // Audio Tone Generator using Web Audio API (Zero external file dependencies)
   const playStartSound = () => {
@@ -91,9 +108,9 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
     }
   };
 
-  // Web Speech API Recording Toggle: Tap to Start / Tap to Stop
+  // Web Speech API Recording Toggle: Tap to Start / Tap to Stop / Auto-stop on 2.2s silence
   const toggleListening = () => {
-    // IF CURRENTLY LISTENING -> USER TAPPED TO STOP IMMEDIATELY
+    // 1. IF CURRENTLY RECORDING -> USER TAPPED TO STOP IMMEDIATELY
     if (isListening) {
       playStopSound();
       if (silenceTimerRef.current) {
@@ -107,16 +124,16 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
       }
       setIsListening(false);
 
-      const finalText = accumulatedTextRef.current.trim();
+      const finalText = accumulatedTextRef.current.trim() || transcript.trim();
       if (finalText) {
         handleParseVoice(finalText);
       }
       return;
     }
 
-    // START RECORDING
+    // 2. START RECORDING
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setErrorMsg('Trình duyệt không hỗ trợ Web Speech API. Hãy gõ văn bản bên dưới.');
+      setErrorMsg('Trình duyệt không hỗ trợ Web Speech API. Hãy gõ văn bản hoặc chọn câu mẫu bên dưới.');
       return;
     }
 
@@ -131,8 +148,8 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
     recognitionRef.current = recognition;
 
     recognition.lang = 'vi-VN';
-    recognition.continuous = true; // Allow long speech with pauses
-    recognition.interimResults = true; // Live transcript streaming
+    recognition.continuous = true;
+    recognition.interimResults = true;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -157,29 +174,32 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
       accumulatedTextRef.current = fullText;
       setTranscript(fullText);
 
-      // Reset Silence Buffer Timer (2.8 seconds timeout after user stops speaking)
+      // Reset Silence Buffer Timer (2.2 seconds timeout after user stops speaking)
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
 
       silenceTimerRef.current = setTimeout(() => {
-        // Automatic stop after 2.8s of silence
+        // Automatic stop after 2.2s of silence
         playStopSound();
         try {
-          recognition.stop();
+          if (recognitionRef.current) {
+            recognitionRef.current.stop();
+          }
         } catch (e) {}
         setIsListening(false);
-        if (accumulatedTextRef.current.trim()) {
-          handleParseVoice(accumulatedTextRef.current.trim());
+        const textToParse = accumulatedTextRef.current.trim();
+        if (textToParse) {
+          handleParseVoice(textToParse);
         }
-      }, 2800);
+      }, 2200);
     };
 
     recognition.onerror = (e) => {
       if (e.error !== 'no-speech') {
         console.warn('Speech recognition error:', e.error);
         setIsListening(false);
-        setErrorMsg('Không thể ghi âm. Xin hãy thử bấm lại mic.');
+        setErrorMsg('Không thể ghi âm. Xin hãy bấm lại nút Mic.');
       }
     };
 
@@ -197,7 +217,7 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
   // Call API Gemini Voice-to-Finance Parser
   const handleParseVoice = async (textToParse) => {
     const text = textToParse || transcript || accumulatedTextRef.current;
-    if (!text.trim()) return;
+    if (!text || !text.trim()) return;
 
     setIsLoading(true);
     setErrorMsg('');
@@ -224,39 +244,64 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
       }
     } catch (err) {
       console.error("Voice parse error:", err);
-      setErrorMsg('Lỗi kết nối AI. Đang lưu tạm vào bộ nhớ Offline Queue.');
+      setErrorMsg('Đang xử lý ngoại tuyến...');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleConfirmSave = () => {
-    if (parseResult) {
-      onSaveTransaction(parseResult);
-      onClose();
+  const handleConfirmSave = async () => {
+    if (parseResult && !isSaving) {
+      try {
+        setIsSaving(true);
+        if (onSaveTransaction) {
+          await onSaveTransaction(parseResult);
+        }
+        handleClose();
+      } catch (err) {
+        console.error("Save transaction error:", err);
+        setErrorMsg("Lỗi khi lưu giao dịch. Xin thử lại.");
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl animate-count-up relative border border-gray-100">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full"
-        >
-          <X className="w-5 h-5" />
-        </button>
+  if (!isOpen) return null;
 
-        <h3 className="text-lg font-extrabold text-[#1A2332] mb-1 flex items-center gap-2">
-          🎙️ Ghi Thu Chi Bằng Giọng Nói
-        </h3>
+  return (
+    <div 
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl animate-count-up relative border border-gray-100 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top Header & Prominent Close Button */}
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-extrabold text-[#1A2332] flex items-center gap-2">
+            🎙️ Ghi Thu Chi Bằng Giọng Nói
+          </h3>
+          <button
+            onClick={handleClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
+            aria-label="Đóng cửa sổ"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
+        </div>
+
         <p className="text-xs text-gray-500 mb-4">
           Nói tự nhiên: <span className="italic text-[#00695C] font-semibold">"Hôm nay nhập 1000 con gà giá 20 nghìn 1 con"</span>
         </p>
 
-        {/* Mic Pulse Button with 2-Phase Interaction (Tap to Start / Tap to Stop) */}
-        <div className="flex flex-col items-center justify-center my-3">
+        {/* Mic Pulse Button (Tap to Start / Tap to Stop) */}
+        <div className="flex flex-col items-center justify-center my-2">
           <button
             onClick={toggleListening}
             className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
@@ -264,6 +309,7 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
                 ? 'bg-[#C62828] text-white shadow-xl scale-110 ring-8 ring-red-100 animate-pulse'
                 : 'bg-[#00695C] hover:bg-[#004D40] text-white shadow-lg hover:scale-105 active:scale-95'
             }`}
+            aria-label={isListening ? "Dừng ghi âm" : "Bắt đầu ghi âm"}
           >
             {isListening ? (
               <Square className="w-8 h-8 fill-white" />
@@ -273,17 +319,17 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
           </button>
           
           {/* Status Label */}
-          <p className="text-xs font-bold mt-3 text-center">
+          <p className="text-xs font-bold mt-2.5 text-center">
             {isListening ? (
               <span className="text-[#C62828] flex items-center gap-1.5 justify-center">
-                🔴 Đang lắng nghe... <span className="underline">Chạm vào nút để dừng ngay</span>
+                🔴 Đang lắng nghe... <span className="underline">Chạm để dừng ngay</span>
               </span>
             ) : (
               <span className="text-gray-600">Bấm vào Mic để bắt đầu nói</span>
             )}
           </p>
 
-          {/* Audio Waveform Visualizer Animation */}
+          {/* Audio Waveform Animation */}
           {isListening && (
             <div className="flex items-center justify-center gap-1.5 mt-2 h-6">
               <div className="w-1.5 bg-[#FF8F00] h-5 rounded-full animate-bounce"></div>
@@ -334,7 +380,7 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
             type="text"
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
-            placeholder={isListening ? "Đang lắng nghe giọng nói của bạn..." : "Hoặc gõ/chỉnh sửa câu nói tại đây..."}
+            placeholder={isListening ? "Đang lắng nghe giọng nói..." : "Hoặc gõ câu giao dịch tại đây..."}
             className={`w-full min-h-[44px] px-3.5 bg-gray-50 border rounded-2xl text-xs font-semibold focus:outline-none focus:border-[#00695C] ${
               isListening ? 'border-[#C62828] bg-red-50/40' : 'border-gray-200'
             }`}
@@ -343,7 +389,7 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
             <button
               onClick={() => handleParseVoice(transcript)}
               disabled={isLoading}
-              className="mt-2 w-full min-h-[40px] bg-[#00695C] text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow"
+              className="mt-2 w-full min-h-[40px] bg-[#00695C] text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow hover:bg-[#004D40]"
             >
               <Sparkles className="w-4 h-4 text-[#FF8F00]" />
               <span>Phân Tích Bằng AI</span>
@@ -399,13 +445,22 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
               </div>
             )}
 
-            <button
-              onClick={handleConfirmSave}
-              className="w-full btn-primary-cta mt-2 flex items-center justify-center gap-2 text-xs"
-            >
-              <CheckCircle2 className="w-5 h-5" />
-              <span>XÁC NHẬN LƯU GIAO DỊCH</span>
-            </button>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleClose}
+                className="flex-1 min-h-[44px] rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-100 transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleConfirmSave}
+                disabled={isSaving}
+                className="flex-[2] btn-primary-cta flex items-center justify-center gap-1.5 text-xs disabled:opacity-50"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                <span>XÁC NHẬN LƯU</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
