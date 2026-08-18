@@ -403,23 +403,52 @@ QUY TẮC 6 — KHÔNG KÊ ĐƠN THUỐC. Chỉ hướng dẫn an toàn sinh h�
     }
 
     const responseText = result.response.text();
-    let cleaned = responseText.trim();
+    let parsed = null;
 
-    // Strip markdown code fences if present
-    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
-    
-    // Extract exact JSON object substring
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    // Helper: Extract valid JSON substring using bracket-depth counter
+    function extractValidJSON(str) {
+      const start = str.indexOf('{');
+      if (start === -1) return null;
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let i = start; i < str.length; i++) {
+        const char = str[i];
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (char === '\\') {
+          escape = true;
+          continue;
+        }
+        if (char === '"') {
+          inString = !inString;
+          continue;
+        }
+        if (!inString) {
+          if (char === '{') depth++;
+          else if (char === '}') {
+            depth--;
+            if (depth === 0) {
+              return str.substring(start, i + 1);
+            }
+          }
+        }
+      }
+      return null;
     }
 
-    let parsed;
     try {
-      parsed = JSON.parse(cleaned);
+      const jsonSubstr = extractValidJSON(responseText);
+      if (jsonSubstr) {
+        parsed = JSON.parse(jsonSubstr);
+      } else {
+        const cleaned = responseText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+        parsed = JSON.parse(cleaned);
+      }
     } catch (parseErr) {
-      console.warn("Raw JSON parse failed, attempting regex cleanup:", parseErr.message);
+      console.warn("JSON parse attempt error:", parseErr.message);
       // Fallback clean regex
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
