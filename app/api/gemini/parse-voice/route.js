@@ -3,9 +3,23 @@ import { NextResponse } from 'next/server';
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-// Standalone Natural Language Voice Parser for Offline Fallback
+// Clean text: remove dot separators in currency e.g. "20.000đ" -> "20000 đồng"
+function normalizeVietnameseCurrency(text) {
+  let cleaned = (text || '').toLowerCase();
+  
+  // Replace currency with dots e.g. "20.000đ", "1.750.000đ"
+  cleaned = cleaned.replace(/(\d{1,3})\.(\d{3})\.(\d{3})\s*(?:đ|đồng|vnd)?/gi, '$1$2$3 đồng');
+  cleaned = cleaned.replace(/(\d{1,3})\.(\d{3})\s*(?:đ|đồng|vnd)?/gi, '$1$2 đồng');
+  cleaned = cleaned.replace(/(\d+)\s*đ\b/gi, '$1 đồng');
+  cleaned = cleaned.replace(/(\d+)\s*k\b/gi, '$1 nghìn');
+
+  return cleaned;
+}
+
+// Standalone Natural Language Voice Parser with Exact Mathematical Multiplication
 function parseOfflineVoice(transcript) {
-  const lower = (transcript || '').toLowerCase().trim();
+  const normalized = normalizeVietnameseCurrency(transcript);
+  const lower = normalized.trim();
   
   if (!lower) {
     return {
@@ -17,7 +31,8 @@ function parseOfflineVoice(transcript) {
 
   // Check for Missing Price
   const hasPrice = lower.includes('nghìn') || lower.includes('ngàn') || lower.includes('k') || 
-                   lower.includes('trăm') || lower.includes('triệu') || lower.includes('đồng') || /\d{3,}/.test(lower);
+                   lower.includes('trăm') || lower.includes('triệu') || lower.includes('đồng') || 
+                   lower.includes('giá') || /\d{3,}/.test(lower);
   
   if (!hasPrice) {
     return {
@@ -43,23 +58,27 @@ function parseOfflineVoice(transcript) {
   let category = "cam";
   let itemName = "Cám hỗn hợp gia cầm";
 
-  if (lower.includes('3008') || lower.includes('cargill') || lower.includes('cám')) {
+  if (lower.includes('gà') || lower.includes('thịt') || lower.includes('giống') || lower.includes('con')) {
+    if (lower.includes('nhập') || lower.includes('giống') || isExpense) {
+      category = "giong";
+      itemName = "Nhập gà giống";
+    } else {
+      category = "ban_ga";
+      itemName = "Bán gà thịt";
+    }
+  } else if (lower.includes('3008') || lower.includes('cargill') || lower.includes('cám')) {
     itemName = "Cám hỗn hợp gia cầm";
     category = "cam";
   } else if (lower.includes('thuốc') || lower.includes('vắc') || lower.includes('kháng sinh') || lower.includes('thú y')) {
     category = "thuoc";
     itemName = "Thuốc thú y gia cầm";
-  } else if (lower.includes('gà') || lower.includes('thịt') || lower.includes('giống')) {
-    category = type === 'REVENUE' ? "ban_ga" : "giong";
-    itemName = type === 'REVENUE' ? "Bán gà thịt" : "Nhập gà giống";
   } else if (lower.includes('điện') || lower.includes('nước') || lower.includes('trấu')) {
     category = "khac";
     itemName = "Chi phí vận hành trang trại";
   }
 
-  // Extract Numbers (Quantity & Price)
+  // Extract Unit & Quantity
   let quantity = 1;
-  let price = 50000;
   let unit = "bao";
 
   if (lower.includes('kg') || lower.includes('ký') || lower.includes('cân')) unit = "kg";
@@ -67,42 +86,78 @@ function parseOfflineVoice(transcript) {
   else if (lower.includes('chai') || lower.includes('lọ')) unit = "lọ";
   else if (lower.includes('liều')) unit = "liều";
 
-  const qtyMatch = lower.match(/(\d+)\s*(bao|kg|con|chai|lọ|liều)/);
+  const qtyMatch = lower.match(/(\d+)\s*(?:con|bao|kg|ký|cân|chai|lọ|liều)/);
   if (qtyMatch) {
     quantity = parseInt(qtyMatch[1], 10);
   }
 
-  // Parse Vietnamese numbers (triệu, trăm rưỡi, nghìn, k)
+  // Extract Price: Check whether Unit Price (giá X / con) or Total Price (hết X triệu / tổng X)
+  let isUnitPrice = lower.includes('một con') || lower.includes('1 con') || 
+                    lower.includes('một bao') || lower.includes('1 bao') || 
+                    lower.includes('một kg') || lower.includes('1 kg') || 
+                    lower.includes('một ký') || lower.includes('1 ký') ||
+                    lower.includes('giá') || lower.includes('/con') || lower.includes('/kg');
+
+  let rawPrice = 0;
+
+  // 1. Check for million (triệu / tr)
   if (lower.includes('triệu') || lower.includes('tr')) {
     const trMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*(?:triệu|tr)/);
     if (trMatch) {
       const trVal = parseFloat(trMatch[1].replace(',', '.'));
-      price = trVal * 1000000;
+      rawPrice = trVal * 1000000;
     }
-  } else if (lower.includes('trăm rưỡi')) {
-    price = 150000;
+  } 
+  // 2. Check for hundred thousand phrases
+  else if (lower.includes('trăm rưỡi')) {
+    rawPrice = 150000;
   } else if (lower.includes('hai trăm rưỡi')) {
-    price = 250000;
+    rawPrice = 250000;
   } else if (lower.includes('ba trăm rưỡi')) {
-    price = 350000;
-  } else {
-    const numMatch = lower.match(/(\d+)\s*(nghìn|ngàn|k|trăm|đồng)/);
-    if (numMatch) {
-      const numVal = parseInt(numMatch[1], 10);
-      const unitStr = numMatch[2];
-      if (unitStr === 'k' || unitStr === 'nghìn' || unitStr === 'ngàn') price = numVal * 1000;
-      else if (unitStr === 'trăm') price = numVal * 100000;
-      else price = numVal;
+    rawPrice = 350000;
+  } 
+  // 3. Match explicit number with unit (nghìn, ngàn, k, đồng)
+  else {
+    const priceMatch = lower.match(/(?:giá|hết|thu|chi|về)?\s*(\d+)\s*(?:nghìn|ngàn|k|đồng)/i);
+    if (priceMatch) {
+      const numVal = parseInt(priceMatch[1], 10);
+      if (lower.includes('nghìn') || lower.includes('ngàn') || lower.includes('k')) {
+        rawPrice = numVal * 1000;
+      } else {
+        rawPrice = numVal;
+      }
     } else {
-      const rawNumMatch = lower.match(/(\d{3,})/);
-      if (rawNumMatch) {
-        price = parseInt(rawNumMatch[1], 10);
+      // Find numbers excluding quantity
+      const allNumbers = Array.from(lower.matchAll(/\b(\d+)\b/g)).map(m => parseInt(m[1], 10));
+      const filtered = allNumbers.filter(n => n !== quantity);
+      if (filtered.length > 0) {
+        rawPrice = filtered[filtered.length - 1];
+        if (rawPrice < 1000 && rawPrice > 0) rawPrice = rawPrice * 1000;
       }
     }
   }
 
-  const totalAmount = price * quantity;
-  const formattedAmountText = totalAmount.toLocaleString('vi-VN');
+  if (rawPrice === 0) {
+    rawPrice = 20000; // sensible default
+  }
+
+  let pricePerUnit = rawPrice;
+  let totalAmount = rawPrice;
+
+  if (isUnitPrice && quantity > 1) {
+    pricePerUnit = rawPrice;
+    totalAmount = pricePerUnit * quantity;
+  } else if (!isUnitPrice && quantity > 1 && rawPrice > 100000) {
+    // If total amount was stated e.g. "mua 5 bao cám hết 1 triệu 750"
+    totalAmount = rawPrice;
+    pricePerUnit = Math.round(totalAmount / quantity);
+  } else {
+    totalAmount = rawPrice * quantity;
+    pricePerUnit = rawPrice;
+  }
+
+  const formattedTotal = totalAmount.toLocaleString('vi-VN');
+  const formattedUnit = pricePerUnit.toLocaleString('vi-VN');
 
   return {
     parsed_success: true,
@@ -112,9 +167,9 @@ function parseOfflineVoice(transcript) {
     item_name: itemName,
     quantity,
     unit,
-    price_per_unit: price,
+    price_per_unit: pricePerUnit,
     total_amount: totalAmount,
-    tts_confirmation: `Đã ghi nhận ${type === 'EXPENSE' ? 'chi' : 'thu'} ${formattedAmountText} đồng tiền ${itemName}.`
+    tts_confirmation: `Đã ghi nhận ${type === 'EXPENSE' ? 'chi' : 'thu'} ${formattedTotal} đồng tiền ${itemName} (${quantity} ${unit} x ${formattedUnit}đ/${unit}).`
   };
 }
 
@@ -177,26 +232,42 @@ export async function POST(req) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const candidateModels = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
     let result = null;
-    let lastErr = null;
 
-    const systemInstruction = `Bạn là Trợ lý Tài chính Nông nghiệp nghiêm ngặt (ChănNuôi AI).
-Nhiệm vụ: Phân tích câu văn giọng nói tiếng Việt địa phương và trích xuất thành giao dịch tài chính JSON.
+    const systemInstruction = `Bạn là Trợ lý Kế toán & Quản trị Trang trại Gia cầm Thông minh (ChănNuôi AI).
+Nhiệm vụ: Phân tích câu nói tiếng Việt địa phương và trích xuất thành giao dịch tài chính JSON với TOÁN HỌC CHÍNH XÁC 100%.
 
-[QUY TẮC KIỂM TRA ĐẦY ĐỦ THÔNG TIN TÀI CHÍNH - ZERO HALLUCINATION]:
-1. Bắt buộc phải có đủ 2 yếu tố: (1) Tên vật tư/gà AND (2) Số tiền kèm đơn vị rõ ràng (k, nghìn, triệu, đồng).
-2. NẾU THIẾU GIÁ TIỀN ➔ Đặt parsed_success: false, error_code: "MISSING_PRICE", tts_confirmation: "Bạn chưa nói giá tiền cám/thuốc bao nhiêu, xin hãy nói lại kèm số tiền."
-3. NẾU SỐ TIỀN THIẾU ĐƠN VỊ RÕ RÀNG ➔ Đặt parsed_success: false, error_code: "AMBIGUOUS_TEXT", tts_confirmation: "Số tiền chưa rõ là nghìn hay triệu, xin hãy nói rõ đơn vị số tiền."
-4. Quy đổi từ ngữ 3 miền rõ ràng:
-   - "trăm rưỡi nghìn" = 150000 | "ba trăm rưỡi nghìn" = 350000 | "hai triệu tư" = 2400000 | "5 k" = 5000 | "520 nghìn" = 520000
-   - "một chục" = 10 | "hai chục" = 20 | "nửa bao" = 0.5
-5. Phân loại type: "EXPENSE" (Chi phí) hoặc "REVENUE" (Doanh thu).
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【QUY TẮC TÍNH TOÁN TOÁN HỌC BẮT BUỘC】:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. PHÂN BIỆT ĐƠN GIÁ (PRICE PER UNIT) VÀ TỔNG TIỀN (TOTAL AMOUNT):
+   - NẾU người dùng nói "X [con/bao/kg] giá Y [đ/nghìn/k] một [con/bao/kg]":
+     ➔ quantity = X
+     ➔ price_per_unit = Y
+     ➔ total_amount = X * Y
+     *VÍ DỤ:* "nhập gà 1000 con giá 20.000đ một con" ➔ quantity: 1000, unit: "con", price_per_unit: 20000, total_amount: 20000000 (20 triệu).
+     *VÍ DỤ:* "bán 100 kg gà giá 54 nghìn một cân" ➔ quantity: 100, unit: "kg", price_per_unit: 54000, total_amount: 5400000.
+   
+   - NẾU người dùng nói "mua X bao cám hết Y triệu/nghìn":
+     ➔ quantity = X
+     ➔ total_amount = Y
+     ➔ price_per_unit = Y / X
+     *VÍ DỤ:* "mua 5 bao cám hết 1 triệu 750 nghìn" ➔ quantity: 5, unit: "bao", total_amount: 1750000, price_per_unit: 350000.
+
+2. QUY ĐỔI SỐ TIỀN & ĐƠN VỊ TIẾNG VIỆT:
+   - "20.000đ", "20k", "20 ngàn", "20 nghìn" = 20000
+   - "trăm rưỡi" = 150000 | "hai trăm rưỡi" = 250000 | "ba trăm rưỡi" = 350000
+   - "1 triệu 750 nghìn" = 1750000 | "5 triệu tư" = 5400000 | "20 triệu" = 20000000
+
+3. PHÂN LOẠI LOẠI GIAO DỊCH (TYPE):
+   - "EXPENSE" (Chi phí): Nhập gà, mua cám, mua thuốc, trả tiền điện nước.
+   - "REVENUE" (Doanh thu): Bán gà, bán trứng, bán phân gà.
 
 JSON Output Format:
 {
   "parsed_success": boolean,
   "error_code": null | "MISSING_PRICE" | "AMBIGUOUS_TEXT",
   "type": "EXPENSE" | "REVENUE" | null,
-  "category": "cam" | "giong" | "thuoc" | "ban_ga" | "ban_trung" | "khac" | null,
+  "category": "giong" | "cam" | "thuoc" | "ban_ga" | "ban_trung" | "khac" | null,
   "item_name": string | null,
   "quantity": number | null,
   "unit": string | null,
@@ -211,17 +282,16 @@ JSON Output Format:
           model: modelName,
           generationConfig: {
             responseMimeType: 'application/json',
-            temperature: 0.1,
+            temperature: 0.05,
           },
           systemInstruction
         });
 
-        const prompt = `Phân tích câu giọng nói này: "${transcript}"`;
+        const prompt = `Phân tích câu giọng nói này và tính toán số tiền chính xác: "${transcript}"`;
         result = await model.generateContent(prompt);
         if (result) break;
       } catch (mErr) {
-        console.warn(`Voice model ${modelName} attempt failed:`, mErr.status || mErr.message);
-        lastErr = mErr;
+        console.warn(`Voice model ${modelName} failed:`, mErr.message);
       }
     }
 
@@ -245,11 +315,17 @@ JSON Output Format:
       return NextResponse.json(parseOfflineVoice(transcript));
     }
 
+    // Safety verification: if quantity and price_per_unit exist but total_amount is wrong
+    if (parsedJson.quantity && parsedJson.price_per_unit && (!parsedJson.total_amount || parsedJson.total_amount === parsedJson.price_per_unit)) {
+      if (parsedJson.quantity > 1) {
+        parsedJson.total_amount = parsedJson.quantity * parsedJson.price_per_unit;
+      }
+    }
+
     return NextResponse.json(parsedJson);
 
   } catch (error) {
     console.error("Gemini Voice Parse Final Catch Error:", error);
-    // Seamless fallback to smart offline parser — never crash or show red error to farmer
     return NextResponse.json(parseOfflineVoice(transcript));
   }
 }

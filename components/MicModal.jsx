@@ -219,8 +219,13 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
               {parseResult.total_amount?.toLocaleString('vi-VN')} đ
             </div>
 
-            <div className="text-sm text-gray-700 font-medium">
+            <div className="text-xs text-gray-700 font-medium">
               Vật tư: <span className="font-bold text-[#00695C]">{parseResult.item_name}</span> ({parseResult.quantity} {parseResult.unit})
+              {parseResult.price_per_unit && parseResult.quantity > 1 && (
+                <span className="text-gray-500 block text-[11px] mt-0.5">
+                  ({parseResult.quantity?.toLocaleString('vi-VN')} {parseResult.unit} × {parseResult.price_per_unit?.toLocaleString('vi-VN')} đ/{parseResult.unit})
+                </span>
+              )}
             </div>
 
             {parseResult.tts_confirmation && (
