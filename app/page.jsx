@@ -5,7 +5,6 @@ import AuthHeader from '@/components/AuthHeader';
 import BottomNav from '@/components/BottomNav';
 import MicModal from '@/components/MicModal';
 import AddFlockModal from '@/components/AddFlockModal';
-import TopBar from '@/components/TopBar';
 import FamilyShareModal from '@/components/FamilyShareModal';
 import DiseaseDetailModal from '@/components/DiseaseDetailModal';
 import {
@@ -338,26 +337,32 @@ export default function HomeApp() {
     }
   };
 
+  // Safe Array References
+  const safeFlocks = Array.isArray(flocks) ? flocks : [];
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const safeVaccines = Array.isArray(flockVaccines) ? flockVaccines : [];
+
   // Financial Calculations
-  const filteredTransactions = transactions.filter(tx => {
+  const filteredTransactions = safeTransactions.filter(tx => {
+    if (!tx) return false;
     if (financeFlockFilter !== 'all' && tx.flockId !== financeFlockFilter) return false;
     if (financeCategoryFilter !== 'all' && tx.category !== financeCategoryFilter) return false;
     return true;
   });
 
   const totalExpense = filteredTransactions
-    .filter(tx => tx.logType === 'EXPENSE' || tx.type === 'EXPENSE')
+    .filter(tx => tx && (tx.logType === 'EXPENSE' || tx.type === 'EXPENSE'))
     .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
 
   const totalRevenue = filteredTransactions
-    .filter(tx => tx.logType === 'REVENUE' || tx.type === 'REVENUE')
+    .filter(tx => tx && (tx.logType === 'REVENUE' || tx.type === 'REVENUE'))
     .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
 
   const netProfit = totalRevenue - totalExpense;
 
   // Vaccine progress for selected flock
-  const completedVaccinesCount = flockVaccines.filter(v => v.isCompleted).length;
-  const totalVaccinesCount = flockVaccines.length;
+  const completedVaccinesCount = safeVaccines.filter(v => v && v.isCompleted).length;
+  const totalVaccinesCount = safeVaccines.length;
   const vaccineProgressPct = totalVaccinesCount > 0 ? Math.round((completedVaccinesCount / totalVaccinesCount) * 100) : 0;
 
   return (
@@ -967,7 +972,6 @@ export default function HomeApp() {
         )}
       </div>
 
-      <TopBar ttsEnabled={ttsEnabled} setTtsEnabled={setTtsEnabled} />
       <BottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}

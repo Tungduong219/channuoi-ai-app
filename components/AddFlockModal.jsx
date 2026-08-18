@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Layers, Sparkles, Loader2, PlusCircle, CheckCircle2, Mic, Square, Volume2 } from 'lucide-react';
+import { X, Layers, Sparkles, Loader2, PlusCircle, CheckCircle2, Mic, Square } from 'lucide-react';
 
 const COMMON_BREEDS = [
   { id: 'Gà Ri', name: 'Gà Ri (Thả vườn)', defaultPurpose: 'Nuôi lấy thịt', defaultPrice: 20000 },
@@ -33,6 +33,37 @@ export default function AddFlockModal({ isOpen, onClose, onCreateFlock, ttsEnabl
   const silenceTimerRef = useRef(null);
   const accumulatedTextRef = useRef('');
 
+  // Functions declared before useEffect
+  const stopVoiceCleanup = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch (e) {}
+      recognitionRef.current = null;
+    }
+  };
+
+  const playTone = (freq, duration) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch (e) {}
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -53,37 +84,54 @@ export default function AddFlockModal({ isOpen, onClose, onCreateFlock, ttsEnabl
 
   if (!isOpen) return null;
 
-  // Sound generator
-  const playTone = (freq, duration) => {
+  const parseVoiceForFlock = async (text) => {
+    if (!text || !text.trim()) return;
+    setIsVoiceParsing(true);
+    setVoiceNotice('');
+
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + duration);
-    } catch (e) {}
+      const res = await fetch('/api/gemini/parse-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: text,
+          isFlockCreationMode: true
+        })
+      });
+      const data = await res.json();
+      if (data) {
+        if (data.breed) {
+          setBreed(data.breed);
+          const found = COMMON_BREEDS.find(b => b.id === data.breed);
+          if (found) setPurpose(found.defaultPurpose);
+        }
+        if (data.initial_count || data.quantity) {
+          setInitialCount(data.initial_count || data.quantity);
+        }
+        if (data.unit_price || data.price_per_unit) {
+          setUnitPrice(data.unit_price || data.price_per_unit);
+        }
+        if (data.coop_location) {
+          setCoopLocation(data.coop_location);
+        }
+        if (data.flock_name) {
+          setFlockName(data.flock_name);
+        } else if (data.breed && data.coop_location) {
+          setFlockName(`${data.coop_location} - ${data.breed}`);
+        }
+        if (data.purpose) {
+          setPurpose(data.purpose);
+        }
+
+        setVoiceNotice(`✨ AI đã điền: ${data.breed || 'Gà'} (${data.initial_count || data.quantity || 1000} con x ${(data.unit_price || data.price_per_unit || 20000).toLocaleString('vi-VN')}đ/con)`);
+      }
+    } catch (err) {
+      console.warn("Voice flock parse error:", err);
+    } finally {
+      setIsVoiceParsing(false);
+    }
   };
 
-  const stopVoiceCleanup = () => {
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch (e) {}
-      recognitionRef.current = null;
-    }
-  };
-
-  // Toggle Voice Input for Quick Flock Creation
   const toggleVoiceRecording = () => {
     if (isVoiceListening) {
       playTone(587, 0.15);
@@ -97,7 +145,7 @@ export default function AddFlockModal({ isOpen, onClose, onCreateFlock, ttsEnabl
       return;
     }
 
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    if (typeof window === 'undefined' || (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window))) {
       setVoiceNotice('Trình duyệt không hỗ trợ Web Speech API.');
       return;
     }
@@ -152,54 +200,6 @@ export default function AddFlockModal({ isOpen, onClose, onCreateFlock, ttsEnabl
     try {
       recognition.start();
     } catch (e) {}
-  };
-
-  const parseVoiceForFlock = async (text) => {
-    if (!text || !text.trim()) return;
-    setIsVoiceParsing(true);
-    setVoiceNotice('');
-
-    try {
-      const res = await fetch('/api/gemini/parse-voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: text,
-          isFlockCreationMode: true
-        })
-      });
-      const data = await res.json();
-      if (data) {
-        if (data.breed) {
-          setBreed(data.breed);
-          const found = COMMON_BREEDS.find(b => b.id === data.breed);
-          if (found) setPurpose(found.defaultPurpose);
-        }
-        if (data.initial_count || data.quantity) {
-          setInitialCount(data.initial_count || data.quantity);
-        }
-        if (data.unit_price || data.price_per_unit) {
-          setUnitPrice(data.unit_price || data.price_per_unit);
-        }
-        if (data.coop_location) {
-          setCoopLocation(data.coop_location);
-        }
-        if (data.flock_name) {
-          setFlockName(data.flock_name);
-        } else if (data.breed && data.coop_location) {
-          setFlockName(`${data.coop_location} - ${data.breed}`);
-        }
-        if (data.purpose) {
-          setPurpose(data.purpose);
-        }
-
-        setVoiceNotice(`✨ AI đã điền: ${data.breed || 'Gà'} (${data.initial_count || data.quantity || 1000} con x ${(data.unit_price || data.price_per_unit || 20000).toLocaleString('vi-VN')}đ/con)`);
-      }
-    } catch (err) {
-      console.warn("Voice flock parse error:", err);
-    } finally {
-      setIsVoiceParsing(false);
-    }
   };
 
   const totalSeedExpense = (Number(initialCount) || 0) * (Number(unitPrice) || 0);

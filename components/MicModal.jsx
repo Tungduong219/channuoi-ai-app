@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, X, Volume2, CheckCircle2, AlertTriangle, Loader2, Square, Sparkles, Layers, ChevronDown } from 'lucide-react';
+import { Mic, X, Volume2, CheckCircle2, AlertTriangle, Loader2, Square, Sparkles, Layers } from 'lucide-react';
 
 export default function MicModal({
   isOpen,
@@ -21,6 +21,67 @@ export default function MicModal({
   const recognitionRef = useRef(null);
   const silenceTimerRef = useRef(null);
   const accumulatedTextRef = useRef('');
+
+  // Declare helper functions before useEffect
+  const stopRecordingCleanup = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+  };
+
+  const handleClose = () => {
+    stopRecordingCleanup();
+    onClose();
+  };
+
+  const playStartSound = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch (e) {}
+  };
+
+  const playStopSound = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const playTone = (freq, startTime, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.15, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+      playTone(587.33, ctx.currentTime, 0.12);
+      playTone(880.00, ctx.currentTime + 0.10, 0.22);
+    } catch (e) {}
+  };
 
   useEffect(() => {
     if (defaultFlockId) {
@@ -49,65 +110,6 @@ export default function MicModal({
     }
   }, [isOpen]);
 
-  const handleClose = () => {
-    stopRecordingCleanup();
-    onClose();
-  };
-
-  // Web Audio Tone Generator
-  const playStartSound = () => {
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.15);
-    } catch (e) {}
-  };
-
-  const playStopSound = () => {
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const playTone = (freq, startTime, duration) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
-        gain.gain.setValueAtTime(0.15, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(startTime);
-        osc.stop(startTime + duration);
-      };
-      playTone(587.33, ctx.currentTime, 0.12);
-      playTone(880.00, ctx.currentTime + 0.10, 0.22);
-    } catch (e) {}
-  };
-
-  const stopRecordingCleanup = () => {
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort();
-      } catch (e) {}
-      recognitionRef.current = null;
-    }
-  };
-
   const toggleListening = () => {
     if (isListening) {
       playStopSound();
@@ -129,7 +131,7 @@ export default function MicModal({
       return;
     }
 
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    if (typeof window === 'undefined' || (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window))) {
       setErrorMsg('Trình duyệt không hỗ trợ Web Speech API. Hãy gõ câu giao dịch bên dưới.');
       return;
     }
@@ -247,10 +249,10 @@ export default function MicModal({
     }
   };
 
-  // Instant Optimistic Save (0 delay close)
   const handleConfirmSave = () => {
     if (parseResult) {
-      const matchedFlock = availableFlocks.find(f => f.flockId === targetFlockId);
+      const safeFlocks = Array.isArray(availableFlocks) ? availableFlocks : [];
+      const matchedFlock = safeFlocks.find(f => f.flockId === targetFlockId);
       const flockName = matchedFlock ? matchedFlock.flockName : 'Chung Toàn Trại';
 
       if (onSaveTransaction) {
@@ -266,6 +268,8 @@ export default function MicModal({
 
   if (!isOpen) return null;
 
+  const safeFlocksList = Array.isArray(availableFlocks) ? availableFlocks : [];
+
   return (
     <div 
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
@@ -277,7 +281,6 @@ export default function MicModal({
         className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl animate-count-up relative border border-gray-100 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header & Close Button */}
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-extrabold text-[#1A2332] flex items-center gap-2">
             🎙️ Ghi Thu Chi Bằng Giọng Nói
@@ -295,8 +298,7 @@ export default function MicModal({
           Nói tự nhiên: <span className="italic text-[#00695C] font-semibold">"Đàn Đông Tảo mua 5 bao cám hết 1 triệu 750k"</span>
         </p>
 
-        {/* Target Flock Selector Badge */}
-        {availableFlocks.length > 0 && (
+        {safeFlocksList.length > 0 && (
           <div className="mb-3 p-2.5 bg-[#F0FAF9] rounded-2xl border border-[#00695C]/20 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-bold text-[#00695C]">
               <Layers className="w-4 h-4" />
@@ -308,7 +310,7 @@ export default function MicModal({
               className="text-xs font-extrabold text-[#1A2332] bg-white px-3 py-1.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#00695C] shadow-sm"
             >
               <option value="general">🏢 Chung Toàn Trại</option>
-              {availableFlocks.map(f => (
+              {safeFlocksList.map(f => (
                 <option key={f.flockId} value={f.flockId}>
                   🐔 {f.flockName} ({f.breed})
                 </option>
@@ -317,7 +319,6 @@ export default function MicModal({
           </div>
         )}
 
-        {/* Mic Pulse Button */}
         <div className="flex flex-col items-center justify-center my-2">
           <button
             onClick={toggleListening}
@@ -355,7 +356,6 @@ export default function MicModal({
           )}
         </div>
 
-        {/* Quick Sample Phrases */}
         <div className="my-3">
           <p className="text-[11px] font-bold text-gray-400 mb-1.5">💡 Câu mẫu bấm thử nhanh:</p>
           <div className="flex flex-wrap gap-1.5">
@@ -389,7 +389,6 @@ export default function MicModal({
           </div>
         </div>
 
-        {/* Transcript Box */}
         <div className="relative">
           <input
             type="text"
@@ -412,7 +411,6 @@ export default function MicModal({
           )}
         </div>
 
-        {/* Loading Spinner */}
         {isLoading && (
           <div className="flex items-center justify-center gap-2 my-4 text-[#00695C]">
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -420,7 +418,6 @@ export default function MicModal({
           </div>
         )}
 
-        {/* Error Alert */}
         {errorMsg && (
           <div className="mt-3 p-3 bg-[#FFF3CD] border border-[#FF8F00] rounded-2xl flex items-start gap-2.5 text-[#1A2332]">
             <AlertTriangle className="w-5 h-5 text-[#FF8F00] shrink-0 mt-0.5" />
@@ -428,7 +425,6 @@ export default function MicModal({
           </div>
         )}
 
-        {/* Parse Result Confirmation Card */}
         {parseResult && (
           <div className="mt-3 p-4 bg-[#F0FAF9] border-2 border-[#00695C] rounded-2xl animate-count-up space-y-2">
             <div className="flex items-center justify-between">
@@ -443,14 +439,14 @@ export default function MicModal({
             </div>
 
             <div className="text-2xl font-extrabold text-[#1A2332]">
-              {parseResult.total_amount?.toLocaleString('vi-VN')} đ
+              {(Number(parseResult.total_amount) || 0).toLocaleString('vi-VN')} đ
             </div>
 
             <div className="text-xs text-gray-700 font-medium">
               Vật tư: <span className="font-bold text-[#00695C]">{parseResult.item_name}</span> ({parseResult.quantity} {parseResult.unit})
               {parseResult.price_per_unit && parseResult.quantity > 1 && (
                 <span className="text-gray-500 block text-[11px] mt-0.5 font-semibold">
-                  ({parseResult.quantity?.toLocaleString('vi-VN')} {parseResult.unit} × {parseResult.price_per_unit?.toLocaleString('vi-VN')} đ/{parseResult.unit})
+                  ({(Number(parseResult.quantity) || 1).toLocaleString('vi-VN')} {parseResult.unit} × {(Number(parseResult.price_per_unit) || 0).toLocaleString('vi-VN')} đ/{parseResult.unit})
                 </span>
               )}
             </div>
