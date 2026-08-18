@@ -125,22 +125,44 @@ export default function HomeApp() {
   // Selected Flock Object
   const currentFlock = flocks.find(f => f.flockId === selectedFlockId) || flocks[0] || null;
 
-  // Helper: Compute Age in Days
+  // Helper: Compute Age in Days safely
   const getAgeInDays = (startDate) => {
     if (!startDate) return 1;
-    const start = new Date(startDate);
-    const now = new Date();
-    const diffTime = now.getTime() - start.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(1, diffDays + 1);
+    try {
+      const start = new Date(startDate);
+      if (isNaN(start.getTime())) return 1;
+      const now = new Date();
+      const diffTime = now.getTime() - start.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return Math.max(1, diffDays + 1);
+    } catch (e) {
+      return 1;
+    }
   };
 
-  // Helper: Compute Vaccine Date from Start Date
+  // Helper: Compute Vaccine Date from Start Date safely
   const getVaccineDate = (startDate, dayAge) => {
     if (!startDate) return '';
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + (Number(dayAge) || 1) - 1);
-    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    try {
+      const date = new Date(startDate);
+      if (isNaN(date.getTime())) return '';
+      date.setDate(date.getDate() + (Number(dayAge) || 1) - 1);
+      return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch (e) {
+      return '';
+    }
+  };
+
+  // Helper: Format Date Safely
+  const formatDateSafe = (dStr) => {
+    if (!dStr) return '--/--';
+    try {
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return dStr;
+      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    } catch (e) {
+      return dStr || '--/--';
+    }
   };
 
   // Toggle Vaccine Status
@@ -639,7 +661,7 @@ export default function HomeApp() {
                       <div className="bg-gray-50 p-2 rounded-2xl border border-gray-100">
                         <span className="text-[10px] text-gray-500 font-semibold">Ngày vào đàn</span>
                         <div className="text-xs font-extrabold text-gray-700 mt-0.5">
-                          {new Date(currentFlock.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                          {formatDateSafe(currentFlock?.startDate)}
                         </div>
                       </div>
                     </div>

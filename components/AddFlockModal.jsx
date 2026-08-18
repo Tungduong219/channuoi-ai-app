@@ -18,7 +18,7 @@ export default function AddFlockModal({ isOpen, onClose, onCreateFlock, ttsEnabl
   const [breed, setBreed] = useState('Gà Ri');
   const [initialCount, setInitialCount] = useState(1000);
   const [unitPrice, setUnitPrice] = useState(20000);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState('2026-08-19');
   const [purpose, setPurpose] = useState('Nuôi lấy thịt');
   const [coopLocation, setCoopLocation] = useState('Chuồng 1');
   const [isCreating, setIsCreating] = useState(false);
@@ -32,6 +32,15 @@ export default function AddFlockModal({ isOpen, onClose, onCreateFlock, ttsEnabl
   const recognitionRef = useRef(null);
   const silenceTimerRef = useRef(null);
   const accumulatedTextRef = useRef('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        setStartDate(today);
+      } catch (e) {}
+    }
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
