@@ -24,13 +24,10 @@ export async function POST(req) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-3.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.1,
-      },
-      systemInstruction: `Bạn là Bác sĩ Thú y chuyên về Lịch phòng bệnh Gia cầm tại Việt Nam.
+    const candidateModels = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+    let result = null;
+
+    const systemInstruction = `Bạn là Bác sĩ Thú y chuyên về Lịch phòng bệnh Gia cầm tại Việt Nam.
 Nhiệm vụ: Dựa vào thông tin giống gà và ngày bắt đầu nuôi, sinh ra Lịch tiêm vắc-xin cá nhân hóa chuẩn theo ngày tuổi dạng JSON.
 
 JSON Output Format:
@@ -46,13 +43,32 @@ JSON Output Format:
       "notes": string
     }
   ]
-}`
-    });
+}`;
 
-    const prompt = `Sinh lịch vắc-xin chuẩn cho giống gà: ${breed || 'Gà Ri'}, ngày thả giống: ${startDate || 'Hôm nay'}`;
-    const result = await model.generateContent(prompt);
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.1,
+          },
+          systemInstruction
+        });
+
+        const prompt = `Sinh lịch vắc-xin chuẩn cho giống gà: ${breed || 'Gà Ri'}, ngày thả giống: ${startDate || 'Hôm nay'}`;
+        result = await model.generateContent(prompt);
+        if (result) break;
+      } catch (mErr) {
+        console.warn(`Vaccine model ${modelName} failed:`, mErr.message);
+      }
+    }
+
+    if (!result) {
+      throw new Error("Mọi mô hình tạo lịch vắc-xin đều bận.");
+    }
+
     const responseText = result.response.text();
-
     let cleaned = responseText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');

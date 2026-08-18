@@ -138,7 +138,7 @@ export async function POST(req) {
     });
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const candidateModels = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.7-flash'];
+    const candidateModels = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
     let result = null;
     let lastErr = null;
 
