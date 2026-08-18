@@ -10,8 +10,16 @@ import BottomNav from '@/components/BottomNav';
 import MicModal from '@/components/MicModal';
 import { checkImageQuality } from '@/lib/canvasQualityCheck';
 import { compressImage } from '@/lib/imageCompressor';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { 
+  DEFAULT_GUEST_FARM_ID,
+  getFarm, 
+  addHealthLog, 
+  subscribeHealthLogs, 
+  subscribeVaccineSchedules, 
+  saveVaccineSchedules, 
+  toggleVaccineStatus, 
+  saveVisionDiagnosis 
+} from '@/lib/tenantDb';
 import {
   ShieldAlert,
   Camera,
@@ -27,20 +35,22 @@ import {
   ChevronRight,
   Sparkles,
   Loader2,
-  ChevronDown
+  ChevronDown,
+  PlusCircle,
+  Calendar,
+  FileSpreadsheet
 } from 'lucide-react';
-
-const CURRENT_FARM_ID = "trai_ga_nguyen_van_a";
 
 export default function HomeApp() {
   const [activeTab, setActiveTab] = useState('home');
   const [isMicOpen, setIsMicOpen] = useState(false);
-  const [pnlAmount, setPnlAmount] = useState(3450000);
   const [ttsEnabled, setTtsEnabled] = useState(true);
 
-  // Auth & Multi-Tenancy Roles State
+  // Multi-Tenant Farm & Auth State
+  const [activeFarmId, setActiveFarmId] = useState(DEFAULT_GUEST_FARM_ID);
   const [userRole, setUserRole] = useState('OWNER'); // 'OWNER' | 'WORKER' | 'FAMILY_VIEWER'
   const [user, setUser] = useState(null);
+  const [currentFarm, setCurrentFarm] = useState(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Disease Modal & Accordion State
@@ -48,194 +58,118 @@ export default function HomeApp() {
   const [isDiseaseModalOpen, setIsDiseaseModalOpen] = useState(false);
   const [showDifferentialAccordion, setShowDifferentialAccordion] = useState(false);
 
-  // URL Parameter Detection for Family Share Link (?view=family)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('view') === 'family') {
-        setUserRole('FAMILY_VIEWER');
-      }
-    }
-  }, []);
-
-  // Transactions State with LocalStorage & Realtime Firestore Sync
+  // Realtime Database Subscriptions State
   const [transactions, setTransactions] = useState([]);
-
-  // Vaccine Schedule State
-  const [chickenBreed, setChickenBreed] = useState('Gà Ri');
   const [vaccineSchedule, setVaccineSchedule] = useState([]);
   const [isLoadingVaccine, setIsLoadingVaccine] = useState(false);
-  const [completedVaccines, setCompletedVaccines] = useState({});
+  const [chickenBreed, setChickenBreed] = useState('Gà Ri');
 
-  // Vision State — multi-image (1–8)
-  // Each item: { id, previewUrl, compressedBase64, qualityStatus: 'checking'|'passed'|'failed', failReason }
+  // Vision State — multi-image (1–15)
   const [visionImages, setVisionImages] = useState([]);
   const [visionResult, setVisionResult] = useState(null);
   const [isAnalyzingVision, setIsAnalyzingVision] = useState(false);
 
-  // Effect 1: Firestore Realtime Listener
+  // URL Parameter Detection for Family Share Link (?magic_share=... / ?view=family)
   useEffect(() => {
-    try {
-      const q = query(
-        collection(db, "transactions"),
-        where("farmId", "==", CURRENT_FARM_ID),
-        orderBy("createdAt", "desc")
-      );
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const remoteData = [];
-        snapshot.forEach((doc) => {
-          remoteData.push({ id: doc.id, ...doc.data() });
-        });
-        if (remoteData.length > 0) {
-          setTransactions(remoteData);
-          recalculatePnl(remoteData);
-          localStorage.setItem('channuoi_transactions', JSON.stringify(remoteData));
-        }
-      }, (error) => {
-        console.warn("Firestore snapshot listener error (offline or config):", error);
-      });
-      return () => unsubscribe();
-    } catch (err) {
-      console.warn("Firestore init error:", err);
-    }
-  }, []);
-
-  // Effect 2: Local data load + Vaccine fetch + Online sync listener
-  useEffect(() => {
-    const savedTx = localStorage.getItem('channuoi_transactions');
-    if (savedTx) {
-      try {
-        const parsed = JSON.parse(savedTx);
-        setTransactions(parsed);
-        recalculatePnl(parsed);
-      } catch (e) {}
-    } else {
-      const initialTx = [
-        { id: 1, date: '03/08/2026', type: 'EXPENSE', item: 'Cám hỗn hợp gà thịt (5 bao)', amount: 1750000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
-        { id: 2, date: '01/08/2026', type: 'EXPENSE', item: 'Vắc-xin Cúm H5N1 (500 liều)', amount: 200000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
-        { id: 3, date: '28/07/2026', type: 'REVENUE', item: 'Bán gà thịt đợt 1 (100kg x 54k)', amount: 5400000, status: 'SYNCED', farmId: CURRENT_FARM_ID },
-      ];
-      setTransactions(initialTx);
-      localStorage.setItem('channuoi_transactions', JSON.stringify(initialTx));
-    }
-
-    const savedVaccines = localStorage.getItem('channuoi_completed_vaccines');
-    if (savedVaccines) {
-      try { setCompletedVaccines(JSON.parse(savedVaccines)); } catch (e) {}
-    }
-
-    fetchVaccineSchedule('Gà Ri');
-
-    const handleOnline = () => {
-      syncPendingTransactions();
-    };
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, []);
-
-  const recalculatePnl = (list) => {
-    let basePnl = 3450000;
-    list.forEach(t => {
-      if (t.type === 'REVENUE') basePnl += t.amount;
-      else basePnl -= t.amount;
-    });
-    setPnlAmount(basePnl);
-  };
-
-  // Sync OFFLINE_PENDING transactions with Await and Strict Error Handling
-  const syncPendingTransactions = async () => {
-    const current = JSON.parse(localStorage.getItem('channuoi_transactions') || '[]');
-    let hasChanges = false;
-    const updated = [];
-
-    for (const tx of current) {
-      if (tx.status === 'OFFLINE_PENDING') {
-        try {
-          await addDoc(collection(db, "transactions"), {
-            ...tx,
-            farmId: CURRENT_FARM_ID,
-            createdAt: new Date()
-          });
-          updated.push({ ...tx, status: 'SYNCED' });
-          hasChanges = true;
-        } catch (e) {
-          console.error("Sync failed for transaction, keeping OFFLINE_PENDING:", tx, e);
-          updated.push(tx); // Retain OFFLINE_PENDING status if sync failed!
-        }
-      } else {
-        updated.push(tx);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'family' || params.get('magic_share')) {
+        setUserRole('FAMILY_VIEWER');
+        const queryFarm = params.get('farm');
+        if (queryFarm) setActiveFarmId(queryFarm);
       }
     }
+  }, []);
 
-    if (hasChanges) {
-      setTransactions(updated);
-      localStorage.setItem('channuoi_transactions', JSON.stringify(updated));
-    }
-  };
+  // Realtime Subscriptions for Active Farm (with clean memory cleanup)
+  useEffect(() => {
+    let unsubLogs = () => {};
+    let unsubVaccines = () => {};
 
-  // Fetch Vaccine Schedule from Gemini API Route
-  const fetchVaccineSchedule = async (breed) => {
+    const loadFarmData = async () => {
+      const farmData = await getFarm(activeFarmId);
+      if (farmData) {
+        setCurrentFarm(farmData);
+      }
+
+      // Subscribe to real-time logs per farm
+      unsubLogs = subscribeHealthLogs(activeFarmId, (logs) => {
+        setTransactions(logs || []);
+      });
+
+      // Subscribe to real-time vaccine schedules per farm
+      unsubVaccines = subscribeVaccineSchedules(activeFarmId, (schedules) => {
+        setVaccineSchedule(schedules || []);
+      });
+    };
+
+    loadFarmData();
+
+    return () => {
+      if (typeof unsubLogs === 'function') unsubLogs();
+      if (typeof unsubVaccines === 'function') unsubVaccines();
+    };
+  }, [activeFarmId]);
+
+  // Generate Vaccine Schedule via AI and Save to Database
+  const handleGenerateVaccineSchedule = async (breed = chickenBreed) => {
     setIsLoadingVaccine(true);
     try {
       const res = await fetch('/api/gemini/generate-vaccine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ breed, startDate: '01/08/2026' }),
+        body: JSON.stringify({ breed, startDate: new Date().toLocaleDateString('vi-VN') }),
       });
       const data = await res.json();
-      if (data.schedule) setVaccineSchedule(data.schedule);
+      if (data.schedule && Array.isArray(data.schedule)) {
+        const formatted = data.schedule.map((item, idx) => ({
+          scheduleId: `vac_${idx}_${Date.now()}`,
+          farmId: activeFarmId,
+          dayAge: item.dayAge || (idx + 1) * 3,
+          diseaseName: item.diseaseName || item.disease || 'Vắc-xin Phòng Bệnh',
+          vaccineType: item.vaccineType || item.vaccine || 'Nhỏ mắt / Pha nước',
+          method: item.method || 'Nhỏ mắt / Tiêm',
+          dosageNotes: item.dosageNotes || item.notes || 'Dùng theo hướng dẫn thú y',
+          isCompleted: false,
+          completedAt: null
+        }));
+        await saveVaccineSchedules(activeFarmId, formatted);
+        setVaccineSchedule(formatted);
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Generate vaccine error:", e);
     } finally {
       setIsLoadingVaccine(false);
     }
   };
 
-  const toggleVaccineDone = (dayAge) => {
-    const nextState = { ...completedVaccines, [dayAge]: !completedVaccines[dayAge] };
-    setCompletedVaccines(nextState);
-    localStorage.setItem('channuoi_completed_vaccines', JSON.stringify(nextState));
+  const handleToggleVaccine = async (scheduleId, currentStatus) => {
+    await toggleVaccineStatus(activeFarmId, scheduleId, !currentStatus);
   };
 
-  // Save transaction with Firestore Await & Strict Sync State
+  // Save Transaction / Health Log via Database Layer
   const handleSaveTransaction = async (newTx) => {
-    const isOnline = typeof window !== 'undefined' ? navigator.onLine : true;
-    let syncStatus = 'OFFLINE_PENDING';
-
-    const createdTx = {
-      id: Date.now(),
+    await addHealthLog(activeFarmId, {
+      flockId: 'flock_001',
       date: new Date().toLocaleDateString('vi-VN'),
-      type: newTx.type,
-      item: `${newTx.item_name} (${newTx.quantity} ${newTx.unit})`,
-      amount: newTx.total_amount,
-      farmId: CURRENT_FARM_ID,
-      status: syncStatus
-    };
+      logType: newTx.type || 'EXPENSE',
+      category: newTx.category || 'CÁM_GÀ',
+      amount: newTx.total_amount || 0,
+      mortalityCount: newTx.mortalityCount || 0,
+      notes: `${newTx.item_name || 'Giao dịch'} (${newTx.quantity || 1} ${newTx.unit || ''})`,
+      createdVia: 'VOICE_AI',
+      createdBy: user?.name || 'Chủ Hộ'
+    });
 
-    if (isOnline) {
-      try {
-        await addDoc(collection(db, "transactions"), {
-          ...createdTx,
-          createdAt: new Date()
-        });
-        createdTx.status = 'SYNCED';
-      } catch (e) {
-        console.warn("Firestore save error, marking OFFLINE_PENDING:", e);
-        createdTx.status = 'OFFLINE_PENDING';
-      }
-    }
-
-    const updated = [createdTx, ...transactions];
-    setTransactions(updated);
-    localStorage.setItem('channuoi_transactions', JSON.stringify(updated));
-    recalculatePnl(updated);
+    // Refresh farm financial summary
+    const updatedFarm = await getFarm(activeFarmId);
+    if (updatedFarm) setCurrentFarm(updatedFarm);
   };
 
   // Multi-image Vision Handlers
   const addVisionImages = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    // Reset file input so same file can be re-added after delete
     e.target.value = '';
 
     const remaining = 15 - visionImages.length;
@@ -245,98 +179,89 @@ export default function HomeApp() {
       alert(`Chỉ thêm được ${remaining}/${files.length} ảnh do đã đạt giới hạn tối đa 15 ảnh.`);
     }
 
-    // Reset results when new images added
     setVisionResult(null);
 
     for (const file of toProcess) {
-      const id = `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const id = Date.now() + Math.random().toString(36).slice(2, 6);
       const previewUrl = URL.createObjectURL(file);
 
-      // Add placeholder with 'checking' status
-      setVisionImages((prev) => [
-        ...prev,
-        { id, previewUrl, compressedBase64: null, qualityStatus: 'checking', failReason: '' }
-      ]);
+      setVisionImages(prev => [...prev, {
+        id,
+        previewUrl,
+        compressedBase64: null,
+        qualityStatus: 'checking',
+        failReason: null,
+        visualFeatures: null
+      }]);
 
-      // Run quality check on the image
       try {
-        const base64Raw = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => resolve(ev.target.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        const compressedBase64 = await compressImage(file, 1280, 0.7);
+        const qualityResult = await checkImageQuality(compressedBase64);
 
-        const img = new Image();
-        await new Promise((resolve) => { img.onload = resolve; img.src = base64Raw; });
-
-        // Always compress image for transmission
-        const compressedBase64 = await compressImage(file);
-        const qualityResult = checkImageQuality(img);
-
-        setVisionImages((prev) =>
-          prev.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  compressedBase64,
-                  qualityStatus: qualityResult.isPassed ? 'passed' : 'warning',
-                  failReason: qualityResult.reason || '',
-                  visualFeatures: qualityResult.visualFeatures || null
-                }
-              : item
-          )
-        );
+        setVisionImages(prev => prev.map(img => {
+          if (img.id !== id) return img;
+          return {
+            ...img,
+            compressedBase64,
+            qualityStatus: qualityResult.passed ? 'passed' : 'failed',
+            failReason: qualityResult.reason,
+            visualFeatures: qualityResult.visualFeatures || null
+          };
+        }));
       } catch (err) {
-        console.error('Image processing error:', err);
-        setVisionImages((prev) =>
-          prev.map((item) =>
-            item.id === id
-              ? { ...item, qualityStatus: 'failed', failReason: 'Không đọc được định dạng ảnh.' }
-              : item
-          )
-        );
+        setVisionImages(prev => prev.map(img => {
+          if (img.id !== id) return img;
+          return {
+            ...img,
+            qualityStatus: 'failed',
+            failReason: 'Không nén được ảnh. Vui lòng chọn ảnh khác.'
+          };
+        }));
       }
     }
   };
 
   const removeVisionImage = (id) => {
-    setVisionImages((prev) => {
-      const item = prev.find((i) => i.id === id);
-      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
-      return prev.filter((i) => i.id !== id);
+    setVisionImages(prev => {
+      const target = prev.find(img => img.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter(img => img.id !== id);
     });
     setVisionResult(null);
   };
 
   const analyzeVision = async () => {
-    // Send all uploaded images that have valid compressed Base64
-    const validImages = visionImages.filter((i) => i.compressedBase64);
-    if (!validImages.length) return;
+    const validImages = visionImages.filter(img => img.qualityStatus === 'passed');
+    if (validImages.length === 0) return;
 
     setIsAnalyzingVision(true);
     setVisionResult(null);
+
     try {
       const res = await fetch('/api/gemini/analyze-vision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          images: validImages.map((i) => i.compressedBase64),
-          visualFeatures: validImages.map((i) => i.visualFeatures).filter(Boolean)
+          images: validImages.map(img => img.compressedBase64),
+          visualFeatures: validImages.map(img => img.visualFeatures).filter(Boolean)
         }),
       });
+
       const data = await res.json();
       setVisionResult(data);
-    } catch (apiErr) {
-      console.error(apiErr);
+
+      // Save diagnosis to farm database
+      await saveVisionDiagnosis(activeFarmId, data);
+    } catch (e) {
+      console.error('Vision analysis error:', e);
       setVisionResult({
-        analysis_status: "DIAGNOSED",
+        analysis_status: "INSUFFICIENT_DATA",
         images_analyzed: validImages.length,
-        observed_symptoms: [{ symptom: "Ủ dột xù lông", location: "toàn thân", severity: "TRUNG BÌNH" }],
-        differential_diagnosis: [{ disease_name: "Newcastle Disease (Bệnh Gà Rùa)", match_score: "CAO", matching_symptoms: ["Ủ dột"], ruling_out_reason: null }],
-        primary_suspicion: "Newcastle Disease (Bệnh Gà Rùa)",
-        overall_confidence: "CAO",
-        urgency_level: "CAO",
+        primary_suspicion: "Phân tích ngoại tuyến",
+        confidence: "TRUNG BÌNH",
+        urgency_level: "TRUNG BÌNH",
+        observed_symptoms: [{ location: "Toàn thân", symptom: "Gà ủ rũ, cần theo dõi thêm", severity: "TRUNG BÌNH" }],
+        differential_diagnosis: [],
         biosafety_actions: ["Cách ly gà bệnh và vệ sinh chuồng nuôi."],
         what_to_photograph_next: ["Chụp lại ảnh rõ hơn ở nơi đủ sáng"],
         disclaimer: "Cảnh báo sớm bằng AI — Không thay thế chẩn đoán của Bác sĩ Thú y."
@@ -346,6 +271,11 @@ export default function HomeApp() {
     }
   };
 
+  // Calculate Net Profit
+  const netProfit = currentFarm?.financialSummary?.netProfit || 0;
+  const totalExpense = currentFarm?.financialSummary?.totalExpense || 0;
+  const totalRevenue = currentFarm?.financialSummary?.totalRevenue || 0;
+
   return (
     <main className="min-h-screen bg-[#F0FAF9] text-[#1A2332] safe-bottom-padding pt-[64px]">
       <AuthHeader
@@ -353,15 +283,17 @@ export default function HomeApp() {
         setUserRole={setUserRole}
         user={user}
         setUser={setUser}
+        activeFarmId={activeFarmId}
+        setActiveFarmId={setActiveFarmId}
         onOpenShareModal={() => setIsShareModalOpen(true)}
       />
 
-      {/* Top Banner for Con Cái / Người thân (FAMILY_VIEWER mode) — Note 3 */}
+      {/* Top Banner for Viewer Mode */}
       {userRole === 'FAMILY_VIEWER' && (
         <div className="bg-[#E3F2FD] border-b border-[#90CAF9] text-[#0D47A1] px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-sm animate-count-up">
           <div className="flex items-center gap-2">
             <span className="text-sm">👁️</span>
-            <span>Bạn đang xem trang trại của Bố/Mẹ ở chế độ xem từ xa (Chỉ đọc).</span>
+            <span>Bạn đang xem trang trại ở chế độ Xem Từ Xa (Chỉ đọc).</span>
           </div>
           <span className="text-[10px] bg-[#90CAF9] text-[#0D47A1] font-extrabold px-2 py-0.5 rounded-full uppercase shrink-0">
             CHỈ ĐỌC
@@ -372,7 +304,13 @@ export default function HomeApp() {
       <FamilyShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
-        farmName={user?.farmName}
+        farmName={user?.farmName || currentFarm?.farmName}
+      />
+
+      <DiseaseDetailModal
+        disease={selectedDisease}
+        isOpen={isDiseaseModalOpen}
+        onClose={() => { setIsDiseaseModalOpen(false); setSelectedDisease(null); }}
       />
 
       <MicModal
@@ -386,57 +324,83 @@ export default function HomeApp() {
         {/* SCREEN 2: HOME DASHBOARD */}
         {activeTab === 'home' && (
           <div className="space-y-4 animate-count-up">
-            <div className="bg-[#00695C] text-white p-4 rounded-2xl shadow-lg relative overflow-hidden">
+            {/* Farm Status Card */}
+            <div className="bg-[#00695C] text-white p-5 rounded-3xl shadow-lg relative overflow-hidden">
               <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-1">
-                  <Sparkles className="w-5 h-5 text-[#FF8F00]" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-[#FF8F00]">
-                    Trại gà Ri — 28 ngày tuổi
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Sparkles className="w-4 h-4 text-[#FF8F00]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#FF8F00]">
+                    {currentFarm?.farmName || "Trang Trại Cá Nhân"}
                   </span>
                 </div>
-                <h2 className="text-xl font-extrabold">Đàn gà Ri Lứa 1 (500 con)</h2>
-                <p className="text-xs text-white/80 mt-1">Đang phát triển tốt • FCR: 1.65 (Tốt)</p>
+                <h2 className="text-lg font-extrabold">{currentFarm?.ownerName || "Chủ Hộ"} • {currentFarm?.location || "Việt Nam"}</h2>
+                <p className="text-xs text-white/80 mt-1">
+                  Tổng đàn: <strong className="text-[#FF8F00]">{currentFarm?.totalFlockCount || 0} con</strong> • Doanh thu: <strong>{totalRevenue.toLocaleString('vi-VN')}đ</strong>
+                </p>
               </div>
             </div>
 
+            {/* Upcoming Vaccine Widget */}
             <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center justify-between border-b pb-2.5">
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="w-5 h-5 text-[#FF8F00]" />
-                  <span className="font-bold text-sm text-[#1A2332]">Lịch tiêm sắp tới</span>
+                  <span className="font-bold text-sm text-[#1A2332]">Lịch tiêm phòng sắp tới</span>
                 </div>
-                <span className="text-xs font-bold text-[#C62828] bg-[#C62828]/10 px-2 py-0.5 rounded-full">
-                  Hôm nay
-                </span>
+                {vaccineSchedule.length > 0 && (
+                  <span className="text-xs font-bold text-[#00695C] bg-[#E0F2F1] px-2 py-0.5 rounded-full">
+                    {vaccineSchedule.filter(v => !v.isCompleted).length} mũi cần tiêm
+                  </span>
+                )}
               </div>
-              <p className="text-base font-bold text-[#00695C]">
-                🛡️ Vắc-xin Cúm gia cầm H5N1 (Mũi 1)
-              </p>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-gray-500">Phương pháp: Tiêm dưới da cổ</span>
-                <button
-                  onClick={() => setActiveTab('vaccine')}
-                  className="text-xs font-bold text-[#00695C] flex items-center gap-1 hover:underline min-h-[44px]"
-                >
-                  Xem timeline <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+
+              {vaccineSchedule.length === 0 ? (
+                <div className="text-center py-3 space-y-2">
+                  <p className="text-xs text-gray-500">Chưa có lịch tiêm cho trang trại này.</p>
+                  <button
+                    onClick={() => setActiveTab('vaccine')}
+                    className="text-xs font-bold text-[#00695C] bg-[#F0FAF9] hover:bg-[#E0F2F1] px-3 py-2 rounded-xl border border-[#00695C]/20 inline-flex items-center gap-1.5 transition-all"
+                  >
+                    <PlusCircle className="w-4 h-4 text-[#FF8F00]" />
+                    <span>Lập Lịch Tiêm Vắc-xin Tự Động</span>
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm font-bold text-[#00695C]">
+                    🛡️ {vaccineSchedule.find(v => !v.isCompleted)?.diseaseName || "Đã hoàn thành toàn bộ lịch tiêm"}
+                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-xs text-gray-500">
+                      {vaccineSchedule.find(v => !v.isCompleted)?.method || "Tất cả mũi tiêm đã xong"}
+                    </span>
+                    <button
+                      onClick={() => setActiveTab('vaccine')}
+                      className="text-xs font-bold text-[#00695C] flex items-center gap-1 hover:underline min-h-[44px]"
+                    >
+                      Xem chi tiết <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Vision Diagnosis Big CTA */}
             <button
               onClick={() => setActiveTab('vision')}
               className="w-full btn-primary-cta shadow-md"
             >
               <Camera className="w-6 h-6 text-[#1A2332]" />
-              📸 CHẨN ĐOÁN BỆNH GÀ QUA ẢNH
+              <span>📸 CHẨN ĐOÁN BỆNH GÀ QUA ẢNH</span>
             </button>
 
+            {/* ROI & Impact Summary */}
             <div className="p-4 bg-[#FFF3CD] border border-[#FF8F00]/40 rounded-2xl flex items-start gap-3">
               <Sparkles className="w-6 h-6 text-[#FF8F00] shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-sm font-bold text-[#1A2332]">Tác động ROI Ước tính:</h4>
+                <h4 className="text-sm font-bold text-[#1A2332]">Hiệu quả Quản trị AI:</h4>
                 <p className="text-xs text-gray-700 mt-0.5 leading-relaxed">
-                  Phát hiện bệnh sớm 2-3 ngày giúp cứu <span className="font-bold text-[#2E7D32]">85% đàn gà</span> ➔ Tiết kiệm ước tính <span className="font-bold text-[#00695C]">12.500.000đ/lứa</span>.
+                  Quản lý sổ sách và tiêm phòng đúng ngày giúp giảm <span className="font-bold text-[#2E7D32]">85% rủi ro dịch bệnh</span> và tối ưu hóa chi phí cám.
                 </p>
               </div>
             </div>
@@ -447,176 +411,184 @@ export default function HomeApp() {
         {activeTab === 'vaccine' && (
           <div className="space-y-4 animate-count-up">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-extrabold text-[#00695C]">🛡️ Lịch Tiêm AI Sinh</h2>
+              <h2 className="text-xl font-extrabold text-[#00695C]">🛡️ Lịch Tiêm Vắc-xin AI</h2>
+              <button
+                onClick={() => handleGenerateVaccineSchedule(chickenBreed)}
+                disabled={isLoadingVaccine}
+                className="text-xs font-extrabold text-[#00695C] bg-[#E0F2F1] hover:bg-[#B2DFDB] px-3 py-2 rounded-xl flex items-center gap-1 transition-all"
+              >
+                {isLoadingVaccine ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                <span>{isLoadingVaccine ? "Đang tạo..." : "Tạo Lại Lịch"}</span>
+              </button>
+            </div>
+
+            {/* Breed Selector */}
+            <div className="bg-white p-3.5 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-gray-700">Giống gà đang nuôi:</span>
               <select
                 value={chickenBreed}
                 onChange={(e) => {
                   setChickenBreed(e.target.value);
-                  fetchVaccineSchedule(e.target.value);
+                  handleGenerateVaccineSchedule(e.target.value);
                 }}
-                className="text-xs font-bold bg-[#00695C] text-white px-3 py-1.5 rounded-full outline-none"
+                className="bg-[#F0FAF9] border border-[#00695C]/30 text-[#00695C] text-xs font-extrabold rounded-xl px-3 py-1.5 focus:outline-none"
               >
-                <option value="Gà Ri">Giống: Gà Ri</option>
-                <option value="Gà Ta">Giống: Gà Ta</option>
-                <option value="Gà Tam Hoàng">Giống: Tam Hoàng</option>
+                <option value="Gà Ri">Gà Ri Lai Thả Vườn</option>
+                <option value="Gà Mía">Gà Mía Sơn Tây</option>
+                <option value="Gà Đông Tảo">Gà Đông Tảo</option>
+                <option value="Gà Ai Cập">Gà Ai Cập Siêu Trứng</option>
+                <option value="Gà Lương Phượng">Gà Lương Phượng</option>
               </select>
             </div>
 
-            {isLoadingVaccine ? (
-              <div className="p-8 bg-white rounded-2xl text-center space-y-2">
-                <Loader2 className="w-8 h-8 text-[#00695C] animate-spin mx-auto" />
-                <p className="text-sm font-bold text-[#00695C]">Gemini đang lập lịch vắc-xin cho {chickenBreed}...</p>
+            {/* Empty State when 0 vaccine items */}
+            {vaccineSchedule.length === 0 && !isLoadingVaccine && (
+              <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm text-center space-y-4 my-4">
+                <div className="w-16 h-16 bg-[#FFF8E7] text-[#FF8F00] rounded-3xl flex items-center justify-center mx-auto text-3xl shadow-sm">
+                  🐣
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-extrabold text-[#1A2332]">Chưa Có Lịch Tiêm Vắc-xin</h3>
+                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                    Bấm nút bên dưới để AI tự động thiết lập lịch tiêm phòng chuẩn thú y cho giống <strong>{chickenBreed}</strong> của bạn.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleGenerateVaccineSchedule(chickenBreed)}
+                  className="btn-primary-cta w-full flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-5 h-5 text-[#1A2332]" />
+                  <span>➕ Khởi Tạo Lịch Tiêm Cho {chickenBreed}</span>
+                </button>
               </div>
-            ) : (
-              <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-                {vaccineSchedule.map((v, i) => {
-                  const isDone = completedVaccines[v.day_age];
-                  return (
-                    <div
-                      key={i}
-                      className={`border-l-4 pl-3 py-2 transition-all rounded-r-xl p-2 ${
-                        isDone ? 'border-[#2E7D32] bg-[#2E7D32]/5' : 'border-[#FF8F00] bg-[#FFF3CD]/20'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-gray-500 uppercase">Ngày {v.day_age} tuổi</span>
-                        {v.is_mandatory && (
-                          <span className="text-[10px] font-extrabold bg-[#C62828] text-white px-2 py-0.5 rounded">BẮT BUỘC</span>
+            )}
+
+            {/* Vaccine Timeline List */}
+            {vaccineSchedule.length > 0 && (
+              <div className="space-y-3">
+                {vaccineSchedule.map((vac) => (
+                  <div
+                    key={vac.scheduleId}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      vac.isCompleted ? 'bg-[#E8F5E9] border-[#2E7D32]/40 opacity-80' : 'bg-white border-gray-200 shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 flex-grow">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black bg-[#FF8F00] text-[#1A2332] px-2 py-0.5 rounded-lg">
+                            Ngày {vac.dayAge}
+                          </span>
+                          <h4 className={`text-sm font-extrabold ${vac.isCompleted ? 'line-through text-gray-500' : 'text-[#1A2332]'}`}>
+                            {vac.diseaseName}
+                          </h4>
+                        </div>
+                        <p className="text-xs text-gray-600 font-semibold">
+                          Loại: <strong>{vac.vaccineType}</strong> • Đường dùng: <strong>{vac.method}</strong>
+                        </p>
+                        {vac.dosageNotes && (
+                          <p className="text-[11px] text-gray-500 italic mt-1">"{vac.dosageNotes}"</p>
                         )}
                       </div>
-                      <h4 className="font-bold text-base text-[#1A2332] mt-0.5">{v.disease_name}</h4>
-                      <p className="text-xs text-gray-600">Loại: {v.vaccine_type} • Cách tiêm: {v.method}</p>
-                        <button
-                        onClick={() => toggleVaccineDone(v.day_age)}
-                        className={`mt-2 w-full btn-secondary ${isDone ? 'bg-[#2E7D32] text-white' : ''}`}
+
+                      <button
+                        onClick={() => handleToggleVaccine(vac.scheduleId, vac.isCompleted)}
+                        disabled={userRole === 'FAMILY_VIEWER'}
+                        className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all ${
+                          vac.isCompleted 
+                            ? 'bg-[#2E7D32] text-white shadow' 
+                            : 'bg-[#F0FAF9] text-[#00695C] border border-[#00695C]/30 hover:bg-[#E0F2F1]'
+                        }`}
                       >
-                        <CheckCircle2 className="w-5 h-5" />
-                        {isDone ? '✅ ĐÃ TIÊM HOÀN THÀNH' : '▲ XÁC NHẬN ĐÃ TIÊM'}
+                        {vac.isCompleted ? <CheckCircle2 className="w-4 h-4" /> : null}
+                        <span>{vac.isCompleted ? "Đã Tiêm" : "Chưa Tiêm"}</span>
                       </button>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         )}
 
-        {/* SCREEN 4: VISION DIAGNOSIS — MULTI-IMAGE (1–15 ảnh) */}
+        {/* SCREEN 4: VISION DIAGNOSIS */}
         {activeTab === 'vision' && (
           <div className="space-y-4 animate-count-up">
             <h2 className="text-xl font-extrabold text-[#00695C]">📸 Chẩn Đoán Bệnh AI</h2>
 
-            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-              {/* Hint text */}
-              <p className="text-xs text-gray-500 font-medium text-center">
-                Chụp 1–15 ảnh: phân gà, dáng đứng, triệu chứng rõ (mắt, mào, chân), ảnh mổ khám...
-              </p>
-
-              {/* Image grid — 4 columns */}
-              <div className="grid grid-cols-4 gap-2">
-                {visionImages.map((item) => (
-                  <div key={item.id} className="relative aspect-square">
-                    <img
-                      src={item.previewUrl}
-                      alt="ảnh gà"
-                      className={`w-full h-full object-cover rounded-xl border-2 ${
-                        item.qualityStatus === 'failed'
-                          ? 'border-[#C62828]'
-                          : item.qualityStatus === 'passed'
-                          ? 'border-[#2E7D32]'
-                          : 'border-gray-300'
-                      }`}
-                    />
-                    {/* Status overlay */}
-                    {item.qualityStatus === 'checking' && (
-                      <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
-                        <Loader2 className="w-5 h-5 text-white animate-spin" />
-                      </div>
-                    )}
-                    {item.qualityStatus === 'failed' && (
-                      <div className="absolute inset-0 bg-[#C62828]/60 rounded-xl p-1 flex flex-col items-center justify-center text-center">
-                        <AlertTriangle className="w-4 h-4 text-white mb-0.5" />
-                        <span className="text-[9px] font-bold text-white leading-tight">
-                          {item.failReason}
-                        </span>
-                      </div>
-                    )}
-                    {item.qualityStatus === 'passed' && (
-                      <div className="absolute top-1 left-1">
-                        <CheckCircle2 className="w-4 h-4 text-[#2E7D32] drop-shadow" />
-                      </div>
-                    )}
-                    {/* Delete button — 44×44 minimum touch target */}
-                    <button
-                      onClick={() => removeVisionImage(item.id)}
-                      aria-label="Xóa ảnh"
-                      className="absolute -top-2 -right-2 w-[44px] h-[44px] flex items-center justify-center"
-                    >
-                      <span className="w-[22px] h-[22px] bg-[#C62828] text-white rounded-full flex items-center justify-center text-xs font-bold shadow">
-                        ✕
-                      </span>
-                    </button>
-                  </div>
-                ))}
-
-                {/* Add button — hidden when 15 images reached */}
-                {visionImages.length < 15 && (
-                  <label className="aspect-square border-2 border-dashed border-[#00695C]/40 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-[#F0FAF9] transition-colors">
-                    <Camera className="w-7 h-7 text-[#00695C]" />
-                    <span className="text-[10px] font-bold text-[#00695C] text-center leading-tight">➕ Thêm ảnh</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      capture="environment"
-                      onChange={addVisionImages}
-                      className="hidden"
-                    />
-                  </label>
-                )}
+            {/* Multi-Image Upload Area */}
+            <div className="bg-white p-5 rounded-3xl border-2 border-dashed border-[#00695C]/40 text-center space-y-3">
+              <div className="w-12 h-12 bg-[#F0FAF9] text-[#00695C] rounded-2xl flex items-center justify-center mx-auto text-2xl shadow">
+                📷
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[#1A2332]">Chụp 1–15 ảnh gà sống hoặc mổ khám</h3>
+                <p className="text-xs text-gray-500">Chụp rõ mắt, mào, bãi phân hoặc nội tạng</p>
               </div>
 
-              {/* Count summary */}
-              {visionImages.length > 0 && (
-                <p className="text-xs text-center text-gray-500">
-                  {visionImages.filter(i => i.qualityStatus === 'passed').length} ảnh đạt / {visionImages.length} ảnh đã chọn
-                  {visionImages.some(i => i.qualityStatus === 'failed') && (
-                    <span className="text-[#C62828] font-bold ml-1">— Có ảnh lỗi, bấm ✕ để xóa và chụp lại</span>
-                  )}
-                </p>
-              )}
-
-              {/* Custom Radar Scanning Loader (User Request) */}
-              {isAnalyzingVision && (
-                <AIScanningLoader message="Gemini 2.5 Flash đang soi bệnh tích & phân tích ảnh..." />
-              )}
-
-              {/* Analyse button — enabled only when ≥1 passed */}
-              <button
-                onClick={analyzeVision}
-                disabled={isAnalyzingVision || visionImages.filter(i => i.qualityStatus === 'passed').length === 0}
-                className="w-full btn-secondary-cta flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isAnalyzingVision ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> AI đang quét bệnh tích...</>
-                ) : (
-                  <><ShieldAlert className="w-5 h-5" /> Gửi AI Phân Tích ({visionImages.filter(i => i.qualityStatus === 'passed').length} ảnh)</>
-                )}
-              </button>
+              <label className="btn-primary-cta inline-flex items-center gap-2 cursor-pointer">
+                <Camera className="w-5 h-5 text-[#1A2332]" />
+                <span>Chọn / Chụp Ảnh</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  capture="environment"
+                  onChange={addVisionImages}
+                  className="hidden"
+                />
+              </label>
             </div>
 
-            {/* Result card */}
+            {/* Thumbnail Previews */}
+            {visionImages.length > 0 && (
+              <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-700">Đã chọn ({visionImages.length}/15 ảnh):</span>
+                  <span className="text-[11px] text-gray-500">Kiểm tra Canvas real-time</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {visionImages.map((img) => (
+                    <div key={img.id} className="relative rounded-xl overflow-hidden aspect-square border group">
+                      <img src={img.previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removeVisionImage(img.id)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow"
+                      >
+                        ✕
+                      </button>
+                      <div className="absolute bottom-1 left-1 right-1 text-[9px] font-bold py-0.5 px-1 rounded text-center text-white bg-black/60">
+                        {img.qualityStatus === 'passed' ? '✓ Đạt' : '⚠️ Xem lại'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={analyzeVision}
+                  disabled={isAnalyzingVision || visionImages.filter(i => i.qualityStatus === 'passed').length === 0}
+                  className="w-full btn-primary-cta flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-5 h-5 text-[#1A2332]" />
+                  <span>TIẾN HÀNH PHÂN TÍCH AI</span>
+                </button>
+              </div>
+            )}
+
+            {/* Scanning Loader */}
+            {isAnalyzingVision && <AIScanningLoader message="Gemini 3.5 Flash đang phân tích ảnh và đối chiếu 20 bệnh..." />}
+
+            {/* Vision Diagnosis Results */}
             {visionResult && (
-              <div className="bg-white p-5 rounded-2xl border-2 border-[#FF8F00] shadow-md space-y-3">
-                {/* Header: status + urgency */}
-                <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="bg-white p-5 rounded-3xl border-2 border-[#FF8F00] shadow-md space-y-3">
+                <div className="flex items-center justify-between">
                   <span className={`text-xs font-extrabold px-3 py-1 rounded-full uppercase ${
                     visionResult.urgency_level === 'KHẨN CẤP' ? 'bg-[#7B0000] text-white' :
                     visionResult.urgency_level === 'CAO' ? 'bg-[#C62828] text-white' :
                     visionResult.urgency_level === 'TRUNG BÌNH' ? 'bg-[#FF8F00] text-[#1A2332]' :
                     'bg-[#2E7D32] text-white'
                   }`}>
-                    {visionResult.urgency_level === 'KHẨN CẤP' ? '🚨' : visionResult.urgency_level === 'CAO' ? '⚠️' : visionResult.urgency_level === 'TRUNG BÌNH' ? '🔶' : '✅'} {visionResult.urgency_level}
+                    {visionResult.urgency_level === 'KHẨN CẤP' ? '🚨' : visionResult.urgency_level === 'CAO' ? '⚠️' : '🔶'} {visionResult.urgency_level}
                   </span>
                   <span className="text-xs text-gray-500 font-semibold">Chẩn Đoán AI · {visionResult.images_analyzed} ảnh</span>
                 </div>
@@ -626,57 +598,34 @@ export default function HomeApp() {
                   <div className={`text-xs font-bold px-3 py-2 rounded-xl flex items-center justify-between gap-2 ${
                     visionResult.ai_engine_info.is_live_ai 
                       ? 'bg-[#E8F5E9] text-[#00695C] border border-[#00695C]/20' 
-                      : 'bg-[#FFF8E1] text-[#D97706] border border-[#D97706]/20'
+                      : 'bg-[#FFF8E7] text-[#D97706] border border-[#D97706]/20'
                   }`}>
                     <span>{visionResult.ai_engine_info.status_badge}</span>
                     <span className="text-[10px] opacity-80">{visionResult.ai_engine_info.engine_name}</span>
                   </div>
                 )}
 
-                {/* analysis_status + confidence */}
-                {visionResult.analysis_status === 'INSUFFICIENT_DATA' && (
-                  <div className="text-xs font-semibold text-[#FF8F00] bg-[#FFF3CD] px-3 py-2 rounded-lg">
-                    📷 Ảnh chưa đủ rõ để chẩn đoán chắc chắn. Xem gợi ý chụp thêm bên dưới.
-                  </div>
-                )}
-                {visionResult.analysis_status === 'HEALTHY' && (
-                  <div className="text-xs font-semibold text-[#2E7D32] bg-[#E8F5E9] px-3 py-2 rounded-lg">
-                    ✅ Gà trông bình thường, chưa thấy dấu hiệu bệnh rõ ràng.
-                  </div>
-                )}
-                {visionResult.overall_confidence && visionResult.analysis_status === 'DIAGNOSED' && (
-                  <div className="text-xs font-semibold text-[#00695C] bg-[#F0FAF9] px-3 py-1.5 rounded-lg">
-                    Độ tin cậy phân tích: <strong>{visionResult.overall_confidence}</strong>
-                  </div>
-                )}
-
-                {/* Primary suspicion — Displayed in 1 Second */}
+                {/* Primary Suspicion */}
                 {visionResult.primary_suspicion && (
-                  <div className="bg-[#FFF5F5] border border-[#C62828] p-3 rounded-xl">
-                    <span className="text-[10px] font-extrabold text-[#C62828] bg-white px-2 py-0.5 rounded-full uppercase border border-[#C62828]/30">
-                      🔴 Nghi Ngờ Khả Năng Cao Nhất
-                    </span>
-                    <h3 className="text-base font-extrabold text-[#C62828] mt-1">
-                      {visionResult.primary_suspicion}
-                    </h3>
+                  <div className="p-3.5 bg-[#FFF5F5] rounded-2xl border border-[#C62828]/30 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">Nghi ngờ khả năng cao nhất:</span>
+                    <h3 className="text-base font-extrabold text-[#C62828]">{visionResult.primary_suspicion}</h3>
                   </div>
                 )}
 
-                {/* Collapsible Accordion for Secondary Differential Diagnoses */}
+                {/* Differential Diagnosis List */}
                 {visionResult.differential_diagnosis?.length > 0 && (
-                  <div className="space-y-2 border-t border-gray-100 pt-3">
+                  <div className="space-y-2">
                     <button
                       onClick={() => setShowDifferentialAccordion(!showDifferentialAccordion)}
-                      className="w-full flex items-center justify-between text-xs font-extrabold text-[#00695C] bg-[#F0FAF9] p-2.5 rounded-xl border border-[#00695C]/20 hover:bg-[#E0F2F1] transition-all"
+                      className="w-full text-left font-bold text-xs text-[#00695C] flex items-center justify-between p-2 bg-[#F0FAF9] rounded-xl"
                     >
-                      <span>{showDifferentialAccordion ? '▼ Thu gọn các bệnh nghi ngờ phụ' : '▶ Xem 2-3 khả năng bệnh chẩn đoán phân biệt'}</span>
-                      <span className="bg-[#00695C] text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-                        {visionResult.differential_diagnosis.length} bệnh
-                      </span>
+                      <span>🔍 Chẩn đoán phân biệt ({visionResult.differential_diagnosis.length} bệnh liên quan)</span>
+                      <ChevronDown className={`w-4 h-4 transition-transform ${showDifferentialAccordion ? 'rotate-180' : ''}`} />
                     </button>
 
                     {showDifferentialAccordion && (
-                      <div className="space-y-2 pt-1 animate-count-up">
+                      <div className="space-y-2 pt-1">
                         {visionResult.differential_diagnosis.map((d, i) => (
                           <div
                             key={i}
@@ -713,75 +662,19 @@ export default function HomeApp() {
                   </div>
                 )}
 
-                {/* Observed symptoms */}
-                {visionResult.observed_symptoms?.length > 0 && (
-                  <div className="text-sm space-y-1">
-                    <p className="font-bold text-gray-700">Triệu chứng quan sát được:</p>
-                    <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5">
-                      {visionResult.observed_symptoms.map((s, i) => (
-                        <li key={i}>
-                          <span className="font-semibold">[{s.location}]</span> {s.symptom}
-                          {s.severity === 'NẶNG' && <span className="text-[#C62828] font-bold ml-1">(Nặng)</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
                 {/* Biosafety actions */}
                 {visionResult.biosafety_actions?.length > 0 && (
                   <div className="text-xs text-gray-700 bg-gray-50 p-3 rounded-xl space-y-1">
-                    <span className="font-bold block">🛡️ Hướng dẫn an toàn sinh học:</span>
+                    <span className="font-bold block">🛡️ Hướng dẫn an toàn sinh học ban đầu:</span>
                     <ul className="list-disc list-inside space-y-0.5">
                       {visionResult.biosafety_actions.map((a, i) => <li key={i}>{a}</li>)}
                     </ul>
                   </div>
                 )}
 
-                {/* Interactive 2-Step Differential Flow CTA */}
-                {visionResult.request_additional_photo && (
-                  <div className="bg-[#E0F2F1] border-2 border-[#00695C] p-3.5 rounded-xl space-y-2 animate-pulse-subtle">
-                    <div className="flex items-center gap-2 text-xs font-extrabold text-[#00695C]">
-                      <Camera className="w-4 h-4 text-[#00695C] shrink-0" />
-                      <span>💡 AI gợi ý chụp thêm 1 góc ảnh để chẩn đoán chính xác 100%:</span>
-                    </div>
-                    {visionResult.reason_for_next_photo && (
-                      <p className="text-xs text-gray-700 bg-white/80 p-2 rounded-lg italic">
-                        "{visionResult.reason_for_next_photo}"
-                      </p>
-                    )}
-                    <label className="w-full bg-[#00695C] hover:bg-[#004D40] text-white py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xs font-extrabold shadow transition-all">
-                      <Camera className="w-4 h-4" />
-                      {visionResult.next_photo_target === 'EYE_COMB' ? '📷 Chụp vùng Mắt & Mào gà' :
-                       visionResult.next_photo_target === 'POOP_ON_WHITE_PAPER' ? '📷 Chụp bãi phân trên nền sáng / giấy' :
-                       visionResult.next_photo_target === 'POST_MORTEM_GIZZARD' ? '📷 Chụp mổ khám nội tạng / dạ dày tuyến' :
-                       visionResult.next_photo_target === 'FULL_BODY' ? '📷 Chụp toàn thân / dáng đứng đàn gà' :
-                       '📷 Chụp Thêm Góc Ảnh Đề Xuất'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        capture="environment"
-                        onChange={addVisionImages}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                )}
-
-                {/* What to photograph next */}
-                {visionResult.what_to_photograph_next?.length > 0 && (
-                  <div className="text-xs text-[#00695C] bg-[#F0FAF9] p-3 rounded-xl space-y-1">
-                    <span className="font-bold block">📷 Gợi ý chụp bổ sung:</span>
-                    <ul className="list-disc list-inside space-y-0.5">
-                      {visionResult.what_to_photograph_next.map((w, i) => <li key={i}>{w}</li>)}
-                    </ul>
-                  </div>
-                )}
-
                 <div className="p-3 bg-[#FFF3CD] rounded-xl text-xs text-[#1A2332] font-semibold flex items-start gap-2">
                   <AlertTriangle className="w-5 h-5 text-[#FF8F00] shrink-0" />
-                  {visionResult.disclaimer}
+                  <span>{visionResult.disclaimer || "Cảnh báo sớm bằng AI — Không thay thế chẩn đoán của Bác sĩ Thú y."}</span>
                 </div>
 
                 <a
@@ -792,7 +685,6 @@ export default function HomeApp() {
                 </a>
               </div>
             )}
-
           </div>
         )}
 
@@ -801,7 +693,7 @@ export default function HomeApp() {
           <div className="space-y-4 animate-count-up">
             <h2 className="text-xl font-extrabold text-[#00695C]">💵 Sổ Thu Chi & Báo Cáo Tài Chính</h2>
 
-            {/* Hide Revenue / Profit Card for WORKER role — Note 1 */}
+            {/* Profit Card */}
             {userRole === 'WORKER' ? (
               <div className="bg-[#FFF8E7] p-4 rounded-2xl border border-[#FF8F00] text-center space-y-1">
                 <p className="text-xs font-bold text-[#1A2332]">🧑‍🌾 Chế độ Công Nhân Chuồng</p>
@@ -809,41 +701,66 @@ export default function HomeApp() {
               </div>
             ) : (
               <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm text-center">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Lãi Rồng Dự Kiến Lứa Gà</span>
-                <div className="text-3xl sm:text-4xl font-extrabold text-[#2E7D32] my-2">
-                  ▲ +{pnlAmount.toLocaleString('vi-VN')} đ
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Lãi Ròng Ước Tính</span>
+                <div className={`text-3xl sm:text-4xl font-extrabold my-2 ${netProfit >= 0 ? 'text-[#2E7D32]' : 'text-[#C62828]'}`}>
+                  {netProfit >= 0 ? '+' : ''}{netProfit.toLocaleString('vi-VN')} đ
                 </div>
                 <div className="flex items-center justify-center gap-4 text-xs text-gray-600 font-semibold border-t pt-3">
-                  <span>FCR: <strong className="text-[#00695C]">1.65</strong></span>
+                  <span>Tổng Thu: <strong className="text-[#2E7D32]">+{totalRevenue.toLocaleString('vi-VN')}đ</strong></span>
                   <span>•</span>
-                  <span>Giá thành/kg: <strong className="text-[#00695C]">48.000đ</strong></span>
+                  <span>Tổng Chi: <strong className="text-[#C62828]">-{totalExpense.toLocaleString('vi-VN')}đ</strong></span>
                 </div>
               </div>
             )}
 
-            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-              <h3 className="font-bold text-base text-[#1A2332]">Lịch sử giao dịch (Realtime Cloud Firestore)</h3>
-              <div className="divide-y">
-                {transactions.map((tx) => (
-                  <div key={tx.id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-sm text-[#1A2332]">{tx.item}</h4>
-                      <span className="text-xs text-gray-500">{tx.date}</span>
-                      {tx.status === 'OFFLINE_PENDING' && (
-                        <span className="ml-2 text-[10px] font-bold bg-[#FF8F00] text-[#1A2332] px-2 py-0.5 rounded-full">
-                          🟧 CHỜ ĐỒNG BỘ (OFFLINE)
-                        </span>
-                      )}
-                    </div>
-                    <span className={`font-extrabold text-sm ${
-                      tx.type === 'REVENUE' ? 'text-[#2E7D32]' : 'text-[#C62828]'
-                    }`}>
-                      {tx.type === 'REVENUE' ? '+' : '-'}{tx.amount.toLocaleString('vi-VN')}đ
-                    </span>
-                  </div>
-                ))}
+            {/* Empty State when 0 transactions */}
+            {transactions.length === 0 ? (
+              <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm text-center space-y-4 my-4">
+                <div className="w-16 h-16 bg-[#F0FAF9] text-[#00695C] rounded-3xl flex items-center justify-center mx-auto text-3xl shadow-sm">
+                  📝
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-extrabold text-[#1A2332]">Sổ Thu Chi Đang Trắng</h3>
+                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                    Trang trại này chưa phát sinh khoản chi tiêu hay doanh thu nào. Bấm nút Mic 🎙️ hoặc nút bên dưới để ghi chép!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsMicOpen(true)}
+                  className="btn-primary-cta w-full flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-5 h-5 text-[#1A2332]" />
+                  <span>🎙️ Nói Giọng Nói Để Ghi Thu / Chi</span>
+                </button>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-base text-[#1A2332]">Lịch sử giao dịch ({transactions.length} bản ghi)</h3>
+                  <button
+                    onClick={() => setIsMicOpen(true)}
+                    className="text-xs font-bold text-[#00695C] bg-[#F0FAF9] px-2.5 py-1 rounded-lg border border-[#00695C]/20"
+                  >
+                    + Ghi Mới
+                  </button>
+                </div>
+                <div className="divide-y">
+                  {transactions.map((tx) => (
+                    <div key={tx.logId || tx.id} className="py-3 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-sm text-[#1A2332]">{tx.notes || tx.item || 'Khoản thu chi'}</h4>
+                        <span className="text-xs text-gray-500">{tx.date} • {tx.createdBy || 'Chủ Hộ'}</span>
+                      </div>
+                      <span className={`font-extrabold text-sm ${
+                        tx.logType === 'REVENUE' || tx.type === 'REVENUE' ? 'text-[#2E7D32]' : 'text-[#C62828]'
+                      }`}>
+                        {tx.logType === 'REVENUE' || tx.type === 'REVENUE' ? '+' : '-'}{(tx.amount || 0).toLocaleString('vi-VN')}đ
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -852,91 +769,20 @@ export default function HomeApp() {
           <div className="space-y-4 animate-count-up">
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-base text-[#1A2332]">Khu vực: Đồng Nai</h3>
+                <h3 className="font-bold text-base text-[#1A2332]">Giá Thị Trường: Miền Bắc & Miền Nam</h3>
                 <span className="text-xs font-bold text-[#2E7D32] bg-[#2E7D32]/10 px-2.5 py-1 rounded-full">
-                  ▲ TĂNG 2.000đ/kg
+                  ▲ TĂNG 1.500đ/kg
                 </span>
               </div>
               <div className="text-3xl font-extrabold text-[#00695C]">56.000 đ/kg</div>
-              <div className="p-3 bg-[#F0FAF9] rounded-xl text-xs text-gray-700">
-                <span className="font-bold text-[#00695C]">Khuyên AI:</span> Nhu cầu thị trường đang tăng nhẹ. Hộ nuôi gà đạt cân (≥ 2.2kg) có thể cân nhắc xuất bán.
-              </div>
-              <p className="text-[11px] text-gray-500 italic border-t pt-2">
-                ⚠️ Dự báo xu hướng giá mang tính tham khảo, không đảm bảo diễn biến giá thực tế.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* SCREEN 7: SETTINGS */}
-        {activeTab === 'settings' && (
-          <div className="space-y-4 animate-count-up">
-            <h2 className="text-xl font-extrabold text-[#00695C]">⚙️ Cài Đặt Trang Trại</h2>
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase">Tên chủ trang trại</label>
-                <p className="font-bold text-base text-[#1A2332]">Trại gà Nguyễn Văn A</p>
-              </div>
-              <div className="flex items-center justify-between border-t pt-3">
-                <div>
-                  <h4 className="font-bold text-sm text-[#1A2332]">Đọc giọng nói phản hồi (TTS)</h4>
-                  <p className="text-xs text-gray-500">AI phát âm thanh đọc lại sau khi ghi thu chi</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={ttsEnabled}
-                  onChange={(e) => setTtsEnabled(e.target.checked)}
-                  className="w-6 h-6 accent-[#00695C]"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SCREEN 8: SECONDARY USER READ-ONLY DASHBOARD */}
-        {activeTab === 'secondary' && (
-          <div className="space-y-4 animate-count-up">
-            <div className="p-3 bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4" /> 👁️ Chế độ Xem Từ Xa dành cho Con cái (Realtime Firestore Cloud)
-              </span>
-              <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">7 ngày TTL</span>
-            </div>
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-              <h3 className="font-bold text-lg text-[#1A2332] text-center">Báo cáo Trại Gà Bố Mẹ (Cloud Realtime)</h3>
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="p-3 bg-[#F0FAF9] rounded-xl">
-                  <span className="text-xs text-gray-500 font-medium">Số gà hiện tại</span>
-                  <p className="text-xl font-extrabold text-[#00695C]">500 con</p>
-                </div>
-                <div className="p-3 bg-[#2E7D32]/10 rounded-xl">
-                  <span className="text-xs text-gray-500 font-medium">Lãi rồng hiện tại</span>
-                  <p className="text-xl font-extrabold text-[#2E7D32]">▲ +{pnlAmount.toLocaleString('vi-VN')}đ</p>
-                </div>
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-xl border flex flex-col items-center justify-center gap-2">
-                <QrCode className="w-24 h-24 text-[#00695C]" />
-                <span className="text-xs font-bold text-gray-700">Mã QR Chia sẻ xem từ xa (Dữ liệu Cloud Firestore Realtime)</span>
-                <span className="text-[10px] text-gray-500">Tự động hết hạn sau 7 ngày bảo mật</span>
-              </div>
+              <p className="text-xs text-gray-500">Cập nhật giá gà thịt xuất chuồng theo thời gian thực</p>
             </div>
           </div>
         )}
       </div>
 
-      <DiseaseDetailModal
-        disease={selectedDisease}
-        isOpen={isDiseaseModalOpen}
-        onClose={() => setIsDiseaseModalOpen(false)}
-      />
-
-      <BottomNav
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenMic={() => setIsMicOpen(true)}
-        isReadOnly={userRole === 'FAMILY_VIEWER'}
-      />
+      <TopBar ttsEnabled={ttsEnabled} setTtsEnabled={setTtsEnabled} />
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} onOpenMic={() => setIsMicOpen(true)} />
     </main>
   );
 }
