@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Home, ShieldAlert, Mic, Wallet, TrendingUp } from 'lucide-react';
+import { Home, Layers, Mic, Wallet, TrendingUp } from 'lucide-react';
 
 export default function BottomNav({ activeTab, setActiveTab, onOpenMic, isReadOnly = false }) {
   const tabs = [
     { id: 'home', label: 'Trang chủ', icon: Home },
-    { id: 'vaccine', label: 'Lịch tiêm', icon: ShieldAlert },
+    { id: 'flocks', label: 'Đàn gà', icon: Layers },
     { id: 'mic', label: 'Ghi âm', icon: Mic, isCenter: true },
     { id: 'finance', label: 'Sổ Thu Chi', icon: Wallet },
     { id: 'market', label: 'Giá & Dịch', icon: TrendingUp },

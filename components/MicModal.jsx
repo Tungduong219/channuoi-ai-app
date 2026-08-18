@@ -1,21 +1,33 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, X, Volume2, CheckCircle2, AlertTriangle, Loader2, Square, Sparkles } from 'lucide-react';
+import { Mic, X, Volume2, CheckCircle2, AlertTriangle, Loader2, Square, Sparkles, Layers, ChevronDown } from 'lucide-react';
 
-export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnabled = true }) {
+export default function MicModal({
+  isOpen,
+  onClose,
+  onSaveTransaction,
+  availableFlocks = [],
+  defaultFlockId = '',
+  ttsEnabled = true
+}) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [parseResult, setParseResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [targetFlockId, setTargetFlockId] = useState(defaultFlockId || 'general');
 
   const recognitionRef = useRef(null);
   const silenceTimerRef = useRef(null);
   const accumulatedTextRef = useRef('');
 
-  // Handle ESC Key & Close Cleanup
+  useEffect(() => {
+    if (defaultFlockId) {
+      setTargetFlockId(defaultFlockId);
+    }
+  }, [defaultFlockId]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -42,30 +54,23 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
     onClose();
   };
 
-  // Audio Tone Generator using Web Audio API (Zero external file dependencies)
+  // Web Audio Tone Generator
   const playStartSound = () => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
       const ctx = new AudioContext();
-      
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // Crisp 880Hz Tone (A5)
-      
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
       osc.start();
       osc.stop(ctx.currentTime + 0.15);
-    } catch (e) {
-      console.warn("Audio playback error:", e);
-    }
+    } catch (e) {}
   };
 
   const playStopSound = () => {
@@ -73,8 +78,6 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
       const ctx = new AudioContext();
-      
-      // Harmonic 2-tone chime (587Hz -> 880Hz)
       const playTone = (freq, startTime, duration) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -87,12 +90,9 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
         osc.start(startTime);
         osc.stop(startTime + duration);
       };
-
       playTone(587.33, ctx.currentTime, 0.12);
       playTone(880.00, ctx.currentTime + 0.10, 0.22);
-    } catch (e) {
-      console.warn("Audio playback error:", e);
-    }
+    } catch (e) {}
   };
 
   const stopRecordingCleanup = () => {
@@ -108,9 +108,7 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
     }
   };
 
-  // Web Speech API Recording Toggle: Tap to Start / Tap to Stop / Auto-stop on 2.2s silence
   const toggleListening = () => {
-    // 1. IF CURRENTLY RECORDING -> USER TAPPED TO STOP IMMEDIATELY
     if (isListening) {
       playStopSound();
       if (silenceTimerRef.current) {
@@ -131,9 +129,8 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
       return;
     }
 
-    // 2. START RECORDING
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setErrorMsg('Trình duyệt không hỗ trợ Web Speech API. Hãy gõ văn bản hoặc chọn câu mẫu bên dưới.');
+      setErrorMsg('Trình duyệt không hỗ trợ Web Speech API. Hãy gõ câu giao dịch bên dưới.');
       return;
     }
 
@@ -154,7 +151,7 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
     recognition.onstart = () => {
       setIsListening(true);
       setErrorMsg('');
-      playStartSound(); // Crisp Beep Sound
+      playStartSound();
     };
 
     recognition.onresult = (event) => {
@@ -174,18 +171,14 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
       accumulatedTextRef.current = fullText;
       setTranscript(fullText);
 
-      // Reset Silence Buffer Timer (2.2 seconds timeout after user stops speaking)
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
 
       silenceTimerRef.current = setTimeout(() => {
-        // Automatic stop after 2.2s of silence
         playStopSound();
         try {
-          if (recognitionRef.current) {
-            recognitionRef.current.stop();
-          }
+          if (recognitionRef.current) recognitionRef.current.stop();
         } catch (e) {}
         setIsListening(false);
         const textToParse = accumulatedTextRef.current.trim();
@@ -197,7 +190,6 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
 
     recognition.onerror = (e) => {
       if (e.error !== 'no-speech') {
-        console.warn('Speech recognition error:', e.error);
         setIsListening(false);
         setErrorMsg('Không thể ghi âm. Xin hãy bấm lại nút Mic.');
       }
@@ -214,7 +206,6 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
     }
   };
 
-  // Call API Gemini Voice-to-Finance Parser
   const handleParseVoice = async (textToParse) => {
     const text = textToParse || transcript || accumulatedTextRef.current;
     if (!text || !text.trim()) return;
@@ -227,13 +218,19 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
       const res = await fetch('/api/gemini/parse-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: text }),
+        body: JSON.stringify({
+          transcript: text,
+          availableFlocks
+        }),
       });
 
       const data = await res.json();
 
       if (data.parsed_success) {
         setParseResult(data);
+        if (data.matched_flock_id) {
+          setTargetFlockId(data.matched_flock_id);
+        }
         if (ttsEnabled && data.tts_confirmation && 'speechSynthesis' in window) {
           const utterance = new SpeechSynthesisUtterance(data.tts_confirmation);
           utterance.lang = 'vi-VN';
@@ -250,20 +247,20 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
     }
   };
 
-  const handleConfirmSave = async () => {
-    if (parseResult && !isSaving) {
-      try {
-        setIsSaving(true);
-        if (onSaveTransaction) {
-          await onSaveTransaction(parseResult);
-        }
-        handleClose();
-      } catch (err) {
-        console.error("Save transaction error:", err);
-        setErrorMsg("Lỗi khi lưu giao dịch. Xin thử lại.");
-      } finally {
-        setIsSaving(false);
+  // Instant Optimistic Save (0 delay close)
+  const handleConfirmSave = () => {
+    if (parseResult) {
+      const matchedFlock = availableFlocks.find(f => f.flockId === targetFlockId);
+      const flockName = matchedFlock ? matchedFlock.flockName : 'Chung Toàn Trại';
+
+      if (onSaveTransaction) {
+        onSaveTransaction({
+          ...parseResult,
+          flockId: targetFlockId,
+          flockName
+        });
       }
+      handleClose();
     }
   };
 
@@ -273,16 +270,14 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
     <div 
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          handleClose();
-        }
+        if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div 
         className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl animate-count-up relative border border-gray-100 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header & Prominent Close Button */}
+        {/* Top Header & Close Button */}
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-extrabold text-[#1A2332] flex items-center gap-2">
             🎙️ Ghi Thu Chi Bằng Giọng Nói
@@ -296,11 +291,33 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
           </button>
         </div>
 
-        <p className="text-xs text-gray-500 mb-4">
-          Nói tự nhiên: <span className="italic text-[#00695C] font-semibold">"Hôm nay nhập 1000 con gà giá 20 nghìn 1 con"</span>
+        <p className="text-xs text-gray-500 mb-3">
+          Nói tự nhiên: <span className="italic text-[#00695C] font-semibold">"Đàn Đông Tảo mua 5 bao cám hết 1 triệu 750k"</span>
         </p>
 
-        {/* Mic Pulse Button (Tap to Start / Tap to Stop) */}
+        {/* Target Flock Selector Badge */}
+        {availableFlocks.length > 0 && (
+          <div className="mb-3 p-2.5 bg-[#F0FAF9] rounded-2xl border border-[#00695C]/20 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#00695C]">
+              <Layers className="w-4 h-4" />
+              <span>Gán vào đàn:</span>
+            </div>
+            <select
+              value={targetFlockId}
+              onChange={(e) => setTargetFlockId(e.target.value)}
+              className="text-xs font-extrabold text-[#1A2332] bg-white px-3 py-1.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#00695C] shadow-sm"
+            >
+              <option value="general">🏢 Chung Toàn Trại</option>
+              {availableFlocks.map(f => (
+                <option key={f.flockId} value={f.flockId}>
+                  🐔 {f.flockName} ({f.breed})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Mic Pulse Button */}
         <div className="flex flex-col items-center justify-center my-2">
           <button
             onClick={toggleListening}
@@ -318,7 +335,6 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
             )}
           </button>
           
-          {/* Status Label */}
           <p className="text-xs font-bold mt-2.5 text-center">
             {isListening ? (
               <span className="text-[#C62828] flex items-center gap-1.5 justify-center">
@@ -329,7 +345,6 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
             )}
           </p>
 
-          {/* Audio Waveform Animation */}
           {isListening && (
             <div className="flex items-center justify-center gap-1.5 mt-2 h-6">
               <div className="w-1.5 bg-[#FF8F00] h-5 rounded-full animate-bounce"></div>
@@ -346,26 +361,26 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => {
-                setTranscript("mua 5 bao cám hết 1 triệu 750 nghìn");
-                handleParseVoice("mua 5 bao cám hết 1 triệu 750 nghìn");
+                setTranscript("đàn đông tảo mua 5 bao cám hết 1 triệu 750 nghìn");
+                handleParseVoice("đàn đông tảo mua 5 bao cám hết 1 triệu 750 nghìn");
               }}
               className="text-xs bg-[#F0FAF9] text-[#00695C] hover:bg-[#E0F2F1] px-2.5 py-1.5 rounded-xl border border-[#00695C]/20 font-bold transition-all text-left"
             >
-              🛒 Mua 5 bao cám 1.750k
+              🦃 Đàn Đông Tảo: 5 bao cám 1.750k
             </button>
             <button
               onClick={() => {
-                setTranscript("nhập gà 1000 con giá 20.000đ một con");
-                handleParseVoice("nhập gà 1000 con giá 20.000đ một con");
+                setTranscript("chuồng 1 nhập gà 1000 con giá 20.000đ một con");
+                handleParseVoice("chuồng 1 nhập gà 1000 con giá 20.000đ một con");
               }}
               className="text-xs bg-[#FFF8E7] text-[#D97706] hover:bg-[#FFE082] px-2.5 py-1.5 rounded-xl border border-[#FF8F00]/20 font-bold transition-all text-left"
             >
-              🐣 Nhập 1000 con gà giá 20k
+              🐣 Chuồng 1: Nhập 1000 gà giá 20k
             </button>
             <button
               onClick={() => {
-                setTranscript("bán 100kg gà giá 54 nghìn một cân");
-                handleParseVoice("bán 100kg gà giá 54 nghìn một cân");
+                setTranscript("bán 100kg gà thịt giá 54 nghìn một cân");
+                handleParseVoice("bán 100kg gà thịt giá 54 nghìn một cân");
               }}
               className="text-xs bg-[#E8F5E9] text-[#2E7D32] hover:bg-[#C8E6C9] px-2.5 py-1.5 rounded-xl border border-[#2E7D32]/20 font-bold transition-all text-left"
             >
@@ -401,7 +416,7 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
         {isLoading && (
           <div className="flex items-center justify-center gap-2 my-4 text-[#00695C]">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-xs font-bold">AI đang phân tích và tính toán số tiền...</span>
+            <span className="text-xs font-bold">AI đang phân tích và nhận diện đàn...</span>
           </div>
         )}
 
@@ -422,7 +437,9 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
               }`}>
                 {parseResult.type === 'EXPENSE' ? '▼ CHI PHÍ' : '▲ DOANH THU'}
               </span>
-              <span className="text-[10px] font-bold text-gray-500 uppercase">{parseResult.category}</span>
+              <span className="text-[10px] font-bold text-gray-500 uppercase">
+                {parseResult.category} • {parseResult.matched_flock_name ? `🐔 ${parseResult.matched_flock_name}` : '🏢 Chung'}
+              </span>
             </div>
 
             <div className="text-2xl font-extrabold text-[#1A2332]">
@@ -454,10 +471,9 @@ export default function MicModal({ isOpen, onClose, onSaveTransaction, ttsEnable
               </button>
               <button
                 onClick={handleConfirmSave}
-                disabled={isSaving}
-                className="flex-[2] btn-primary-cta flex items-center justify-center gap-1.5 text-xs disabled:opacity-50"
+                className="flex-[2] btn-primary-cta flex items-center justify-center gap-1.5 text-xs shadow-md"
               >
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                <CheckCircle2 className="w-4 h-4" />
                 <span>XÁC NHẬN LƯU</span>
               </button>
             </div>
