@@ -312,18 +312,34 @@ Nhiệm vụ: Phân tích 1-15 ảnh của CÙNG MỘT con gà — bao gồm c�
     Phân biệt với Marek: Leukosis không có u thần kinh tọa, không đổi màu mắt, tuổi mắc cao hơn; u túi bursa là điểm phân biệt chính
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【QUY TẮC PHÂN TÍCH & PHÂN BIỆT CHÉO BẮT BUỘC】
+【QUY TẮC PHÂN TÍCH & PHÂN BIỆT CHÉO TỰ ĐỘNG BẮT BUỘC】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-QUY TẮC 1 — PHÂN LOẠI ẢNH: Xác định ảnh là (a) gà sống/lâm sàng hay (b) mổ khám nội tạng. Áp dụng triệu chứng lâm sàng cho loại (a) và bệnh tích mổ khám cho loại (b). Kết hợp cả hai loại nếu bộ ảnh có cả hai.
+QUY TẮC 1 — PHÂN LOẠI ẢNH THỊ GIÁC: Xác định ảnh là (a) gà sống/lâm sàng hay (b) mổ khám nội tạng. Áp dụng triệu chứng lâm sàng cho loại (a) và bệnh tích mổ khám cho loại (b). Kết hợp cả hai loại nếu bộ ảnh có cả hai.
 
 QUY TẮC 2 — ĐA ẢNH: Coi tất cả ảnh là cùng một con gà. Tổng hợp thành 1 kết luận duy nhất. Nếu ảnh mâu thuẫn, ghi nhận cả hai và hạ confidence.
 
-QUY TẮC 3 — QUY TẮC PHÂN BIỆT CHÉO TỰ ĐỘNG (VISUAL DIFFERENTIAL OVERRIDES):
-- Newcastle vs Thương hàn: NẾU thấy Xuất huyết dạ dày tuyến HOẶC Triệu chứng thần kinh ngoẹo cổ/vặn đầu ➔ BẮT BUỘC chọn Newcastle = CAO, và hạ Thương hàn = THẤP. Ghi rõ trong ruling_out_reason: "Có triệu chứng thần kinh ngoẹo cổ / xuất huyết dạ dày tuyến — dấu hiệu đặc trưng Newcastle mà Thương hàn không có."
-- Newcastle vs H5N1: NẾU không có chết đột ngột hàng loạt + tím thâm da chân/mào ➔ BẮT BUỘC ưu tiên Newcastle over H5N1.
-- CRD vs Coryza vs ORT: Mủ bít ngã ba phế quản ➔ ORT; Sưng mặt thối mủ đặc ➔ Coryza; Mắt bọt bọng ➔ CRD.
-- Marek vs Leukosis: Xoạc chân / đồng tử biến đổi màu ➔ Marek; Gan to khổng lồ / u bursa ➔ Leukosis.
+QUY TẮC 3 — BỘ 5 QUY TẮC PHÂN BIỆT CHÉO BẮT BUỘC (5 VISUAL DIFFERENTIAL OVERRIDES):
+1. Newcastle (NDV) vs H5N1 vs Thương Hàn:
+   - NẾU thấy Xuất huyết thâm tím vảy cán chân + Phù nề đầu/mào/tích + Chết đột ngột hàng loạt ➔ BẮT BUỘC kết luận H5N1 (KHẨN CẤP).
+   - NẾU thấy Triệu chứng thần kinh (ngoẹo cổ torticollis, đi xoay vòng) HOẶC xuất huyết điểm lỗ tuyến dạ dày tuyến ➔ BẮT BUỘC chọn Newcastle = CAO, và hạ Thương hàn = THẤP. Ghi rõ trong ruling_out_reason: "Có triệu chứng thần kinh ngoẹo cổ / xuất huyết dạ dày tuyến — dấu hiệu đặc trưng Newcastle mà Thương hàn không có."
+2. Marek vs Bạch Huyết (Leukosis — ALV):
+   - NẾU thấy Tư thế xoạc múa ba-lê 2 chân HOẶC đồng tử mắt xám đổi màu HOẶC dây thần kinh tọa sưng ➔ BẮT BUỘC chọn Marek.
+   - NẾU thấy Gan/lách sưng khổng lồ + U cục nổi sần ở túi Bursa + Gà lớn >16 tuần ➔ BẮT BUỘC chọn Leukosis (ALV). Ghi rõ ruling_out_reason phân biệt với Marek.
+3. Gumboro (IBD) vs Cầu Trùng (Eimeria) vs Bệnh Đầu Đen (Histomoniasis):
+   - NẾU thấy Phân trắng nhầy bột sắn + Mổ cắn hậu môn + Túi Bursa sưng đỏ dâu tây ➔ BẮT BUỘC chọn Gumboro.
+   - NẾU thấy Phân lẫn máu tươi đỏ / bã trầu + Manh tràng chứa máu ➔ BẮT BUỘC chọn Cầu Trùng.
+   - NẾU thấy Phân màu vàng lưu huỳnh + Ổ hoại tử gan hình hoa cúc/đồng tiền lõm ➔ BẮT BUỘC chọn Bệnh Đầu Đen.
+4. CRD vs Coryza vs ORT vs ILT vs Nấm Phổi (Các bệnh Hô Hấp):
+   - Mắt sưng bọt khí khóe mắt ➔ CRD.
+   - Sưng phù nề 2 bên má + Dịch mũi đặc thối hôi khắm ➔ Infectious Coryza.
+   - Cục bã đậu hình ống bít ngã 3 phế quản (cuống phổi) ➔ ORT.
+   - Ho khạc ra máu tươi / vẩy máu dính lồng ➔ ILT.
+   - Hạt nấm xám/trắng cứng lốm đốm ở phổi ➔ Nấm Phổi.
+5. E. coli vs Tụ Huyết Trùng vs Viêm Gan Thể Vùi (IBH):
+   - Bệnh tích "Áo tơi Fibrin" màng trắng bọc kín bao tim và gan ➔ E. coli.
+   - Tích sưng cứng tím thẫm + Gan hoại tử điểm trắng li ti như đinh ghim ➔ Tụ Huyết Trùng.
+   - Gan sưng bở màu vàng đất sét vằn đỏ loang lổ ➔ Viêm Gan Thể Vùi (IBH).
 
 QUY TẮC 4 — ZERO-HALLUCINATION GATE:
 - primary_suspicion CHỈ đặt khác null khi: thấy ≥2 triệu chứng thị giác rõ ràng VÀ ≥1 triệu chứng khớp đặc trưng của bệnh đó theo Knowledge Base
@@ -387,14 +403,31 @@ QUY TẮC 6 — KHÔNG KÊ ĐƠN THUỐC. Chỉ hướng dẫn an toàn sinh h�
     }
 
     const responseText = result.response.text();
-    let cleaned = responseText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    let cleaned = responseText.trim();
+
+    // Strip markdown code fences if present
+    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+    
+    // Extract exact JSON object substring
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace !== -1) {
       cleaned = cleaned.substring(firstBrace, lastBrace + 1);
     }
 
-    const parsed = JSON.parse(cleaned);
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.warn("Raw JSON parse failed, attempting regex cleanup:", parseErr.message);
+      // Fallback clean regex
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        throw parseErr;
+      }
+    }
     parsed.images_analyzed = images.length;
 
     // Safety override: hạ H5N1 xuống TRUNG BÌNH nếu chỉ có 1 ảnh
