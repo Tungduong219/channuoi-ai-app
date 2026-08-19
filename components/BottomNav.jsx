@@ -34,12 +34,17 @@ export default function BottomNav({ activeTab, setActiveTab, onOpenMic }) {
         </button>
 
         {/* Tab 3: Center Floating Mic FAB */}
-        <div className="flex items-center justify-center relative -top-3.5">
+        <div className="flex items-center justify-center relative -top-3.5 z-50">
           <button
-            onClick={onOpenMic}
-            className="flex items-center justify-center bg-primary text-white rounded-full w-13 h-13 shadow-xl active:scale-95 transition-transform border-4 border-surface pulse-ring"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onOpenMic();
+            }}
+            className="flex items-center justify-center bg-primary text-white rounded-full shadow-2xl active:scale-90 transition-transform border-4 border-surface pulse-ring cursor-pointer"
             aria-label="Ghi âm giọng nói"
-            style={{ width: '52px', height: '52px' }}
+            style={{ width: '54px', height: '54px' }}
           >
             <Mic className="w-6 h-6 text-secondary-container" />
           </button>

@@ -1505,15 +1505,51 @@ export default function HomeApp() {
              =================================================================== */}
           {activeTab === 'finance' && (
             <div className="space-y-4 animate-count-up">
+              {/* Header */}
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-extrabold text-primary">💵 Sổ Thu Chi & Dòng Tiền</h2>
+                <div>
+                  <h2 className="text-lg font-extrabold text-primary flex items-center gap-2">
+                    <Wallet className="w-5 h-5" />
+                    <span>Sổ Thu Chi & Dòng Tiền Đa Đàn</span>
+                  </h2>
+                  <p className="text-xs text-on-surface-muted">Quản lý thu chi riêng biệt cho từng đàn gà hoặc toàn trại</p>
+                </div>
+              </div>
+
+              {/* Big Prominent Voice AI Hero Banner */}
+              <div
+                onClick={() => setIsMicOpen(true)}
+                className="pulse-ring bg-gradient-to-r from-primary via-[#007A33] to-[#006B2C] text-white p-5 sm:p-6 rounded-3xl shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer group hover:scale-[1.01] transition-transform relative overflow-hidden"
+              >
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 border border-white/20 shadow-sm">
+                    <Mic className="w-7 h-7 text-secondary-container" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-extrabold text-secondary-container bg-black/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      🎙️ Voice AI Một Chạm
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-black text-white mt-1 leading-tight">
+                      Ghi Thu Chi Bằng Giọng Nói
+                    </h3>
+                    <p className="text-xs text-white/90 font-medium mt-0.5">
+                      Nói tự nhiên: <span className="italic font-bold text-secondary-container">"Đàn Đông Tảo mua 5 bao cám hết 1 triệu 750k"</span>
+                    </p>
+                  </div>
+                </div>
+
                 <button
-                  onClick={() => setIsMicOpen(true)}
-                  className="text-xs font-bold text-primary bg-surface-subtle px-3 py-1.5 rounded-xl border border-primary/20 flex items-center gap-1"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMicOpen(true);
+                  }}
+                  className="btn-primary-cta px-6 py-3 text-xs sm:text-sm font-black shadow-md shrink-0 flex items-center justify-center gap-2 relative z-10"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-secondary-container" />
-                  <span>+ Ghi Thu Chi</span>
+                  <Mic className="w-5 h-5 text-on-surface" />
+                  <span>BẤM ĐỂ NÓI NGAY</span>
                 </button>
+                <div className="absolute -right-10 -bottom-10 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
               </div>
 
               {/* Flock Filter Tabs */}
