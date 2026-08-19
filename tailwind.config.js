@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -8,18 +9,91 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#00695C",    // Teal Đậm
-        secondary: "#26A69A",  // Teal Vừa
-        accent: "#FF8F00",     // Cam Hổ Phách
-        bgApp: "#F0FAF9",      // Bạc Hà Nhạt
-        surface: "#FFFFFF",    // Trắng Tinh
-        textPrimary: "#1A2332",// Than Chì (Contrast AAA)
-        statusGreen: "#2E7D32",// Xanh LÃI
-        statusRed: "#C62828",  // Đỏ LỖ
+        "primary": "#006b2c",
+        "primary-container": "#22c55e",
+        "on-primary": "#ffffff",
+        "on-primary-container": "#f7fff2",
+        "on-primary-fixed-variant": "#005320",
+        "primary-fixed": "#7ffc97",
+        "primary-fixed-dim": "#62df7d",
+        
+        "secondary": "#855300",
+        "secondary-container": "#fea619",
+        "on-secondary": "#ffffff",
+        "on-secondary-container": "#684000",
+        "secondary-fixed": "#ffddb8",
+        "secondary-fixed-dim": "#ffb95f",
+        
+        "background": "#f4fcf0",
+        "surface": "#f8faf6",
+        "surface-card": "#ffffff",
+        "surface-subtle": "#f0fdf4",
+        "surface-bright": "#f4fcf0",
+        "surface-hover": "#e8f7ee",
+        "surface-container-lowest": "#ffffff",
+        "surface-container-low": "#eff6ea",
+        "surface-container": "#e9f0e5",
+        "surface-container-high": "#e3eadf",
+        "surface-container-highest": "#dde5d9",
+        "surface-variant": "#dde5d9",
+        "surface-dim": "#d5dcd1",
+        
+        "on-surface": "#1e293b",
+        "on-surface-variant": "#3e4a3d",
+        "on-surface-muted": "#64748b",
+        "on-background": "#171d16",
+        
+        "border-subtle": "#e2e8f0",
+        "border-focus": "#22c55e",
+        "outline": "#6e7b6c",
+        "outline-variant": "#bdcaba",
+        
+        "accent-warm-container": "#fef3c7",
+        "danger": "#dc2626",
+        "danger-container": "#fee2e2",
+        "error": "#ba1a1a",
+        "error-container": "#ffdad6",
+        "on-error": "#ffffff",
+        "on-error-container": "#93000a",
+      },
+      borderRadius: {
+        "DEFAULT": "0.25rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "2xl": "1rem",
+        "3xl": "1.5rem",
+        "full": "9999px"
+      },
+      spacing: {
+        "max-width-desktop": "1280px",
+        "gutter": "24px",
+        "max-width-mobile": "640px",
+        "card-padding": "20px",
+        "base": "8px",
+        "margin-mobile": "16px",
+        "bottom-nav": "72px"
       },
       fontFamily: {
-        sans: ['Be Vietnam Pro', 'Inter', 'sans-serif'],
+        sans: ['Be Vietnam Pro', 'Plus Jakarta Sans', 'Inter', 'sans-serif'],
+        'display-lg-mobile': ['Be Vietnam Pro', 'sans-serif'],
+        'body-md': ['Be Vietnam Pro', 'sans-serif'],
+        'body-lg': ['Be Vietnam Pro', 'sans-serif'],
+        'display-lg': ['Be Vietnam Pro', 'sans-serif'],
+        'body-sm': ['Be Vietnam Pro', 'sans-serif'],
+        'title-md': ['Be Vietnam Pro', 'sans-serif'],
+        'title-lg': ['Be Vietnam Pro', 'sans-serif'],
+        'label-bold': ['Plus Jakarta Sans', 'sans-serif'],
       },
+      fontSize: {
+        'display-lg-mobile': ['28px', { lineHeight: '36px', letterSpacing: '-0.01em', fontWeight: '800' }],
+        'body-md': ['14px', { lineHeight: '22px', fontWeight: '400' }],
+        'body-lg': ['16px', { lineHeight: '24px', fontWeight: '500' }],
+        'display-lg': ['32px', { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '800' }],
+        'body-sm': ['12px', { lineHeight: '18px', fontWeight: '500' }],
+        'title-md': ['18px', { lineHeight: '26px', fontWeight: '700' }],
+        'title-lg': ['24px', { lineHeight: '32px', fontWeight: '700' }],
+        'label-bold': ['13px', { lineHeight: '18px', fontWeight: '700' }]
+      }
     },
   },
   plugins: [],

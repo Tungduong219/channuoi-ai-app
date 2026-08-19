@@ -3,53 +3,72 @@
 import React from 'react';
 import { Home, Layers, Mic, Wallet, TrendingUp } from 'lucide-react';
 
-export default function BottomNav({ activeTab, setActiveTab, onOpenMic, isReadOnly = false }) {
-  const tabs = [
-    { id: 'home', label: 'Trang chủ', icon: Home },
-    { id: 'flocks', label: 'Đàn gà', icon: Layers },
-    { id: 'mic', label: 'Ghi âm', icon: Mic, isCenter: true },
-    { id: 'finance', label: 'Sổ Thu Chi', icon: Wallet },
-    { id: 'market', label: 'Giá & Dịch', icon: TrendingUp },
-  ];
-
+export default function BottomNav({ activeTab, setActiveTab, onOpenMic }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-[64px] bg-[#00695C] z-40 border-t border-[#26A69A]/30 shadow-lg">
-      <div className="max-w-md mx-auto h-full flex items-center justify-around px-2 relative">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
+    <nav className="fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-4 py-2 bg-surface-card border-t border-border-subtle shadow-lg lg:hidden rounded-t-3xl">
+      {/* Left Side Items */}
+      <div className="flex flex-1 justify-around items-center">
+        <button
+          onClick={() => setActiveTab('home')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
+            activeTab === 'home'
+              ? 'text-primary font-black scale-105'
+              : 'text-on-surface-muted hover:text-primary'
+          }`}
+        >
+          <Home className={`w-5 h-5 ${activeTab === 'home' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <span className="text-[10px] font-bold mt-1">Trang chủ</span>
+        </button>
 
-          // Center Floating Mic FAB with Notch Space — Hidden in Read-Only (FAMILY_VIEWER) mode
-          if (tab.isCenter) {
-            if (isReadOnly) return <div key={tab.id} className="w-8"></div>;
-            return (
-              <div key={tab.id} className="relative -top-5 mx-2 z-50">
-                <button
-                  onClick={onOpenMic}
-                  className="w-14 h-14 rounded-full bg-[#FF8F00] text-[#1A2332] flex items-center justify-center border-2 border-white shadow-xl hover:scale-105 active:scale-95 transition-transform"
-                  aria-label="Nút Ghi âm Thu Chi giọng nói"
-                >
-                  <Mic className="w-7 h-7 text-[#1A2332]" />
-                </button>
-              </div>
-            );
-          }
+        <button
+          onClick={() => setActiveTab('flocks')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
+            activeTab === 'flocks'
+              ? 'text-primary font-black scale-105'
+              : 'text-on-surface-muted hover:text-primary'
+          }`}
+        >
+          <Layers className={`w-5 h-5 ${activeTab === 'flocks' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <span className="text-[10px] font-bold mt-1">Đàn & Tiêm</span>
+        </button>
+      </div>
 
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex flex-col items-center justify-center py-1 h-full min-h-[44px] transition-colors ${
-                isActive ? 'text-[#FF8F00]' : 'text-white/80 hover:text-white'
-              }`}
-            >
-              <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-              <span className={`text-[11px] mt-0.5 ${isActive ? 'font-bold' : 'font-normal'}`}>
-                {tab.label}
-              </span>
-            </button>
-          );
-        })}
+      {/* Center Mic FAB */}
+      <div className="relative w-14 h-14 flex-shrink-0 mx-1">
+        <button
+          onClick={onOpenMic}
+          className="absolute left-1/2 -translate-x-1/2 -top-5 flex flex-col items-center justify-center bg-primary text-white rounded-full w-14 h-14 shadow-lg active:scale-95 transition-transform border-4 border-surface pulse-ring"
+          aria-label="Ghi âm giọng nói"
+        >
+          <Mic className="w-6 h-6 text-secondary-container" />
+        </button>
+      </div>
+
+      {/* Right Side Items */}
+      <div className="flex flex-1 justify-around items-center">
+        <button
+          onClick={() => setActiveTab('finance')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
+            activeTab === 'finance'
+              ? 'text-primary font-black scale-105'
+              : 'text-on-surface-muted hover:text-primary'
+          }`}
+        >
+          <Wallet className={`w-5 h-5 ${activeTab === 'finance' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <span className="text-[10px] font-bold mt-1">Sổ thu chi</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('market')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
+            activeTab === 'market'
+              ? 'text-primary font-black scale-105'
+              : 'text-on-surface-muted hover:text-primary'
+          }`}
+        >
+          <TrendingUp className={`w-5 h-5 ${activeTab === 'market' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <span className="text-[10px] font-bold mt-1">Thị trường</span>
+        </button>
       </div>
     </nav>
   );
