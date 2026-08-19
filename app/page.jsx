@@ -55,8 +55,87 @@ import {
   Egg,
   Package,
   ShoppingBag,
-  Stethoscope
+  Stethoscope,
+  BookOpen,
+  HelpCircle,
+  Flame,
+  Search
 } from 'lucide-react';
+
+const COMMON_POULTRY_DISEASES = [
+  {
+    disease_name: "Bệnh Newcastle (Dịch Tả Gà)",
+    pathogen: "Avian Paramyxovirus Serotype 1 (APMV-1)",
+    urgency_level: "KHẨN CẤP",
+    match_score: "NGUY CƠ CAO",
+    matching_symptoms: ["Phân xanh lá chuối / trắng", "Mào tím tái", "Vẹo cổ / Liệt chân cánh", "Thở khò khè"],
+    treatment_protocol: "Không có thuốc đặc trị. Khẩn cấp can thiệp vắc-xin Newcastle Lasota/NDV liều gấp đôi cho toàn đàn, kết hợp kháng thể KTG và hạ sốt Para C.",
+    prevention_guide: "Tiêm phòng vắc-xin đầy đủ theo lịch: 3-5 ngày tuổi (nhỏ mắt), 18-21 ngày tuổi (nhỏ lần 2), 45 ngày tuổi (tiêm nhũ dầu)."
+  },
+  {
+    disease_name: "Bệnh Gumboro (IBD)",
+    pathogen: "Infectious Bursal Disease Virus (IBDV)",
+    urgency_level: "KHẨN CẤP",
+    match_score: "NGUY CƠ CAO",
+    matching_symptoms: ["Phân trắng như vôi / nhớt vàng", "Gà run rẩy, xù lông", "Cắn mổ vào hậu môn", "Túi Fabricius sưng to"],
+    treatment_protocol: "Tiêm kháng thể Gumboro (hoặc KTG), bổ sung điện giải Gluco-K-C thảo dược, tuyệt đối không dùng kháng sinh hại thận.",
+    prevention_guide: "Nhỏ vắc-xin Gumboro lúc 10-12 ngày tuổi và nhắc lại lúc 20-22 ngày tuổi."
+  },
+  {
+    disease_name: "Bệnh Cầu Trùng (Coccidiosis)",
+    pathogen: "Ký sinh trùng Eimeria tenella / E. necatrix",
+    urgency_level: "CAO",
+    match_score: "PHỔ BIẾN",
+    matching_symptoms: ["Phân sáp nâu / phân lẫn máu tươi", "Mào nhợt nhạt", "Gà ủ rũ, giảm ăn", "Độn chuồng ẩm ướt"],
+    treatment_protocol: "Dùng thuốc đặc trị: Toltrazuril 2.5% hoặc Diclazuril / Sulfaclozine kết hợp Vitamin K chống xuất huyết ruột.",
+    prevention_guide: "Giữ chất độn chuồng khô ráo, dùng men rắc chuồng Balasa và trộn thuốc phòng cầu trùng giai đoạn 15-35 ngày tuổi."
+  },
+  {
+    disease_name: "Bệnh Hô Hấp Mãn Tính (CRD - Khẹc Gà)",
+    pathogen: "Mycoplasma gallisepticum",
+    urgency_level: "TRUNG BÌNH",
+    match_score: "PHỔ BIẾN",
+    matching_symptoms: ["Thở khò khè, vẩy mỏ", "Sưng mặt, chảy nước mắt/mũi", "Gà kém lớn", "Mắt có bọt khí"],
+    treatment_protocol: "Kháng sinh đặc trị: Doxycycline + Tylosin hoặc Tilmicosin kết hợp thuốc long đờm Bromhexine.",
+    prevention_guide: "Đảm bảo thông thoáng chuồng nuôi, mật độ vừa phải, phun sát trùng định kỳ 2 lần/tuần."
+  },
+  {
+    disease_name: "Bệnh Kéo Màng E. Coli (Colibacillosis)",
+    pathogen: "Escherichia coli",
+    urgency_level: "CAO",
+    match_score: "PHỔ BIẾN",
+    matching_symptoms: ["Gà rù, bại liệt", "Phân trắng loãng", "Mổ khám có màng Fibrin trắng bao phủ gan và tim", "Khó thở"],
+    treatment_protocol: "Kháng sinh: Ceftiofur / Enrofloxacin / Amoxicillin + Colistin kết hợp giải độc gan thận cấp.",
+    prevention_guide: "Xử lý nguồn nước uống bằng Clo/Iodine, vệ sinh máng ăn máng uống hàng ngày."
+  },
+  {
+    disease_name: "Bệnh Tụ Huyết Trùng (Fowl Cholera)",
+    pathogen: "Pasteurella multocida",
+    urgency_level: "KHẨN CẤP",
+    match_score: "NGUY CƠ CAO",
+    matching_symptoms: ["Chết đột ngột", "Mào yếm sưng to đỏ tím", "Thở gấp, chảy dãi mũi miệng", "Phân xanh loãng"],
+    treatment_protocol: "Tiêm kháng sinh khẩn cấp: Penicillin + Streptomycin hoặc Florfenicol / Enrofloxacin cho toàn đàn.",
+    prevention_guide: "Tiêm vắc-xin Tụ huyết trùng cho gà lúc 40-45 ngày tuổi, che chắn chuồng khi thời tiết thay đổi đột ngột."
+  },
+  {
+    disease_name: "Bệnh Đậu Gà (Fowl Pox)",
+    pathogen: "Avian Poxvirus",
+    urgency_level: "TRUNG BÌNH",
+    match_score: "PHỔ BIẾN",
+    matching_symptoms: ["Mụn đậu sần sùi ở mào, mép mỏ, quanh mắt", "Mắt dính bết, khó thở", "Gà khó nuốt"],
+    treatment_protocol: "Cạy mụn đậu bôi cồn Iodine hoặc Xanh Methylen 2%, bổ sung Vitamin A + kháng sinh chống phụ nhiễm.",
+    prevention_guide: "Chủng vắc-xin Đậu gà bằng phương pháp xuyên màng cánh lúc 7-10 ngày tuổi."
+  },
+  {
+    disease_name: "Bệnh Viêm Thanh Khí Quản Truyền Nhiễm (ILT)",
+    pathogen: "Gallid herpesvirus 1 (GaHV-1)",
+    urgency_level: "KHẨN CẤP",
+    match_score: "NGUY CƠ CAO",
+    matching_symptoms: ["Gà ngửa cổ hít thở", "Ho khạc ra đờm có máu", "Tiếng thở rít rên rỉ", "Mắt đỏ sưng"],
+    treatment_protocol: "Khẩn cấp nhỏ lại vắc-xin ILT vào mắt cho toàn đàn, phun sương tinh dầu Bạc hà làm giãn khí quản.",
+    prevention_guide: "Chủng ngừa vắc-xin ILT nhỏ mắt lúc 25-30 ngày tuổi và nhắc lại lúc 50 ngày tuổi."
+  }
+];
 
 export default function HomeApp() {
   const [activeTab, setActiveTab] = useState('home');
@@ -84,7 +163,7 @@ export default function HomeApp() {
   const [visionImages, setVisionImages] = useState([]);
   const [isAnalyzingVision, setIsAnalyzingVision] = useState(false);
   const [visionResult, setVisionResult] = useState(null);
-  const [showDifferentialAccordion, setShowDifferentialAccordion] = useState(false);
+  const [diseaseSearchQuery, setDiseaseSearchQuery] = useState('');
 
   // Finance Ledger State
   const [transactions, setTransactions] = useState([]);
@@ -358,14 +437,19 @@ export default function HomeApp() {
 
   // Total birds count
   const totalBirdsCount = safeFlocks.reduce((sum, f) => sum + (Number(f.currentCount) || Number(f.initialCount) || 0), 0);
-
-  // Daily Feed estimate (approx 0.084 kg per bird for 2500 birds = 210kg)
   const dailyFeedKg = Math.round(totalBirdsCount * 0.084) || 210;
 
   // Vaccine progress for selected flock
   const completedVaccinesCount = safeVaccines.filter(v => v && v.isCompleted).length;
   const totalVaccinesCount = safeVaccines.length;
   const vaccineProgressPct = totalVaccinesCount > 0 ? Math.round((completedVaccinesCount / totalVaccinesCount) * 100) : 0;
+
+  // Filtered Disease Encyclopedia
+  const filteredDiseases = COMMON_POULTRY_DISEASES.filter(d => 
+    !diseaseSearchQuery || 
+    d.disease_name.toLowerCase().includes(diseaseSearchQuery.toLowerCase()) ||
+    d.matching_symptoms.some(s => s.toLowerCase().includes(diseaseSearchQuery.toLowerCase()))
+  );
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-body-md antialiased safe-bottom-padding">
@@ -487,10 +571,7 @@ export default function HomeApp() {
                 </button>
 
                 <button
-                  onClick={() => {
-                    const el = document.getElementById('vision-section');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }}
+                  onClick={() => setActiveTab('vision')}
                   className="relative overflow-hidden bg-secondary-container text-on-secondary-container rounded-3xl p-5 flex items-center justify-between group transition-transform hover:scale-[1.02] soft-shadow-hover text-left h-24"
                 >
                   <div className="flex flex-col relative z-10">
@@ -503,7 +584,7 @@ export default function HomeApp() {
                 </button>
               </section>
 
-              {/* 2. Core Metrics (Horizontal Scroll on Mobile / 3-Col on Desktop) */}
+              {/* 2. Core Metrics */}
               <section>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="font-title-md text-sm font-extrabold text-on-surface">Tổng quan hôm nay</h2>
@@ -645,127 +726,23 @@ export default function HomeApp() {
                     </div>
                   </section>
 
-                  {/* AI Vision Diagnosis Section */}
-                  <section id="vision-section" className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow space-y-3">
-                    <div className="flex items-center justify-between border-b border-border-subtle pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <Camera className="w-5 h-5 text-primary" />
-                        <h3 className="font-extrabold text-sm text-on-surface">Chẩn Đoán Bệnh Qua Ảnh Bằng AI</h3>
+                  {/* Quick Access to Khám Bệnh Banner */}
+                  <section className="bg-gradient-to-br from-surface-subtle via-white to-surface-hover border-2 border-primary/30 rounded-3xl p-5 soft-shadow flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Stethoscope className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-extrabold text-primary uppercase">Bác Sĩ Thú Y AI</span>
                       </div>
-                      <span className="text-[11px] font-bold text-primary bg-surface-subtle px-2.5 py-0.5 rounded-full border border-primary/20">
-                        Merck & OIE
-                      </span>
+                      <h4 className="font-title-md text-sm font-extrabold text-on-surface">Chẩn Đoán Bệnh Gia Cầm Chuẩn Merck & OIE</h4>
+                      <p className="text-xs text-on-surface-muted">Tải ảnh triệu chứng để nhận chẩn đoán và phác đồ điều trị tức thì.</p>
                     </div>
-
-                    <p className="text-xs text-on-surface-muted">
-                      Chụp tối đa 5 ảnh (mào, mắt, chân, phân gà, dáng đứng) để AI phân tích chuẩn thú y.
-                    </p>
-
-                    {/* Image Preview Grid */}
-                    <div className="grid grid-cols-5 gap-2">
-                      {visionImages.map((img, idx) => (
-                        <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-border-subtle group">
-                          <img src={img} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
-                          <button
-                            onClick={() => setVisionImages(prev => prev.filter((_, i) => i !== idx))}
-                            className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-
-                      {visionImages.length < 5 && (
-                        <label className="aspect-square rounded-2xl border-2 border-dashed border-border-subtle hover:border-primary flex flex-col items-center justify-center cursor-pointer bg-surface-container-low transition-colors">
-                          <Upload className="w-5 h-5 text-primary mb-1" />
-                          <span className="text-[10px] font-bold text-on-surface-muted">+ Thêm ảnh</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={handleImageUpload}
-                            className="hidden"
-                          />
-                        </label>
-                      )}
-                    </div>
-
-                    {visionImages.length > 0 && (
-                      <button
-                        onClick={handleAnalyzeVision}
-                        disabled={isAnalyzingVision}
-                        className="w-full btn-primary-cta text-xs font-extrabold flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
-                      >
-                        {isAnalyzingVision ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>AI Đang Phân Tích Chuẩn Thú Y...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-4 h-4" />
-                            <span>PHÂN TÍCH {visionImages.length} ẢNH NGAY</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-
-                    {/* AI Diagnosis Result */}
-                    {visionResult && (
-                      <div className="mt-4 p-4 rounded-2xl bg-surface-subtle border-2 border-primary space-y-3 animate-count-up">
-                        <div className="flex items-center justify-between">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                            visionResult.urgency_level === 'KHẨN CẤP'
-                              ? 'bg-danger text-white animate-pulse'
-                              : 'bg-secondary-container text-on-secondary-container'
-                          }`}>
-                            {visionResult.urgency_level || 'THEO DÕI'}
-                          </span>
-                          <span className="text-xs font-bold text-primary">
-                            Độ tin cậy: {visionResult.confidence || 'CAO'}
-                          </span>
-                        </div>
-
-                        <div>
-                          <h4 className="font-extrabold text-base text-on-surface">
-                            🐔 {visionResult.primary_suspicion}
-                          </h4>
-                          <p className="text-xs text-on-surface-muted italic mt-0.5">
-                            {visionResult.disclaimer}
-                          </p>
-                        </div>
-
-                        {/* Symptoms */}
-                        {visionResult.observed_symptoms && visionResult.observed_symptoms.length > 0 && (
-                          <div className="bg-white p-3 rounded-xl border border-border-subtle space-y-1">
-                            <span className="text-[11px] font-extrabold text-primary block">Triệu chứng quan sát được:</span>
-                            <ul className="text-xs space-y-1 text-on-surface">
-                              {visionResult.observed_symptoms.map((s, idx) => (
-                                <li key={idx} className="flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
-                                  <span><strong>{s.location}:</strong> {s.symptom}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Biosafety actions */}
-                        {visionResult.biosafety_actions && visionResult.biosafety_actions.length > 0 && (
-                          <div className="bg-[#FFF8E7] p-3 rounded-xl border border-secondary-container/30 space-y-1">
-                            <span className="text-[11px] font-extrabold text-secondary block">Biện pháp xử lý ngay:</span>
-                            <ul className="text-xs space-y-1 text-on-surface">
-                              {visionResult.biosafety_actions.map((act, idx) => (
-                                <li key={idx} className="flex items-start gap-1.5">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-secondary-container shrink-0 mt-0.5" />
-                                  <span>{act}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <button
+                      onClick={() => setActiveTab('vision')}
+                      className="px-4 py-2.5 bg-primary text-white rounded-2xl text-xs font-extrabold flex items-center gap-1 shadow-md hover:bg-primary/90 shrink-0"
+                    >
+                      <span>Vào Khám Bệnh</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </section>
 
                   {/* Recent Financial Log */}
@@ -815,7 +792,6 @@ export default function HomeApp() {
                   <section className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow">
                     <h3 className="font-title-md text-sm font-extrabold text-on-surface mb-3">Radar an toàn dịch bệnh</h3>
                     <div className="flex items-center justify-center py-4">
-                      {/* Radar Animation Visualization */}
                       <div className="relative w-36 h-36 flex items-center justify-center">
                         <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
                         <div className="absolute inset-3 rounded-full border-2 border-primary/40 border-dashed animate-[spin_10s_linear_infinite]"></div>
@@ -876,6 +852,253 @@ export default function HomeApp() {
                     <PhoneCall className="w-4 h-4" />
                     <span>📞 GỌI BÁC SĨ THÚ Y KHẨN CẤP</span>
                   </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              TAB: KHÁM BỆNH AI (DEDICATED FULL VISION DIAGNOSIS & DISEASE ENCYCLOPEDIA)
+             =================================================================== */}
+          {activeTab === 'vision' && (
+            <div className="space-y-6 animate-count-up">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-extrabold text-primary flex items-center gap-2">
+                    <Stethoscope className="w-5 h-5" />
+                    <span>Khám Bệnh & Chẩn Đoán AI</span>
+                  </h2>
+                  <p className="text-xs text-on-surface-muted">Tiêu chuẩn chẩn đoán lâm sàng Merck Veterinary Manual & OIE</p>
+                </div>
+                <a
+                  href="tel:19001234"
+                  className="px-3 py-1.5 bg-danger text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-danger/90"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Gọi Bác Sĩ</span>
+                </a>
+              </div>
+
+              {/* Multi-Image Upload Studio Card */}
+              <div className="bg-surface-card p-5 rounded-3xl border border-border-subtle shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-on-surface">📸 Phòng Chụp Ảnh Lâm Sàng</h3>
+                    <p className="text-xs text-on-surface-muted">Tải lên tối đa 5 ảnh cận cảnh các vị trí nghi ngờ</p>
+                  </div>
+                  <span className="text-[11px] font-bold text-primary bg-surface-subtle px-3 py-1 rounded-full border border-primary/20">
+                    {visionImages.length}/5 Ảnh
+                  </span>
+                </div>
+
+                {/* Upload Slots with Visual Hints */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {visionImages.map((img, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary group shadow-sm">
+                      <img src={img} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setVisionImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute top-1.5 right-1.5 bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-90 hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                        Ảnh {idx + 1}
+                      </span>
+                    </div>
+                  ))}
+
+                  {visionImages.length < 5 && (
+                    <label className="aspect-square rounded-2xl border-2 border-dashed border-border-subtle hover:border-primary flex flex-col items-center justify-center cursor-pointer bg-surface-container-low transition-all hover:bg-surface-hover p-2 text-center group">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 group-hover:bg-primary/20 text-primary flex items-center justify-center mb-1.5 transition-colors">
+                        <Upload className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-bold text-on-surface">+ Tải Ảnh Lên</span>
+                      <span className="text-[10px] text-on-surface-muted">Mào / Mắt / Phân</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Guide Hints */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-on-surface-muted bg-surface-container-low p-3 rounded-2xl">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-primary font-bold">1.</span>
+                    <span>Chụp cận cảnh mào, mắt, dịch mũi</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-primary font-bold">2.</span>
+                    <span>Chụp bãi phân tươi ở nơi đủ sáng</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-primary font-bold">3.</span>
+                    <span>Chụp toàn thân hoặc dáng đứng</span>
+                  </div>
+                </div>
+
+                {/* Analyze Action Button */}
+                <button
+                  onClick={handleAnalyzeVision}
+                  disabled={visionImages.length === 0 || isAnalyzingVision}
+                  className="w-full btn-primary-cta text-xs font-extrabold flex items-center justify-center gap-2 shadow-md disabled:opacity-50 min-h-[50px]"
+                >
+                  {isAnalyzingVision ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>AI Đang Đối Soát Bệnh Án Merck & OIE...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 text-on-surface" />
+                      <span>{visionImages.length > 0 ? `PHÂN TÍCH CHẨN ĐOÁN ${visionImages.length} ẢNH NGAY` : 'CHỌN ẢNH ĐỂ BẮT ĐẦU CHẨN ĐOÁN'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* AI Clinical Diagnosis Results Card */}
+              {visionResult && (
+                <div className="p-5 rounded-3xl bg-surface-card border-2 border-primary shadow-lg space-y-4 animate-count-up">
+                  <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase shadow-sm ${
+                      visionResult.urgency_level === 'KHẨN CẤP'
+                        ? 'bg-danger text-white animate-pulse'
+                        : 'bg-secondary-container text-on-secondary-container'
+                    }`}>
+                      Mức Độ: {visionResult.urgency_level || 'THEO DÕI'}
+                    </span>
+                    <span className="text-xs font-extrabold text-primary bg-surface-subtle px-3 py-1 rounded-full border border-primary/20">
+                      Độ Tin Cậy: {visionResult.confidence || 'CAO'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-on-surface-muted uppercase tracking-wider block mb-0.5">Chẩn đoán sơ bộ</span>
+                    <h3 className="font-extrabold text-xl text-primary flex items-center gap-2">
+                      🐔 {visionResult.primary_suspicion}
+                    </h3>
+                    <p className="text-xs text-on-surface-muted italic mt-1 bg-surface-container-low p-2.5 rounded-xl border border-border-subtle">
+                      ⚠️ {visionResult.disclaimer}
+                    </p>
+                  </div>
+
+                  {/* Observed Symptoms */}
+                  {visionResult.observed_symptoms && visionResult.observed_symptoms.length > 0 && (
+                    <div className="bg-surface-subtle p-4 rounded-2xl border border-primary/20 space-y-2">
+                      <h4 className="text-xs font-extrabold text-primary flex items-center gap-1.5">
+                        <Activity className="w-4 h-4" />
+                        <span>Triệu chứng lâm sàng phát hiện qua ảnh:</span>
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {visionResult.observed_symptoms.map((s, idx) => (
+                          <div key={idx} className="bg-white p-2.5 rounded-xl border border-border-subtle text-xs">
+                            <span className="font-bold text-primary block">{s.location}</span>
+                            <span className="text-on-surface">{s.symptom}</span>
+                            {s.severity && (
+                              <span className="text-[10px] text-danger font-bold block mt-0.5">Mức độ: {s.severity}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Biosafety Actions */}
+                  {visionResult.biosafety_actions && visionResult.biosafety_actions.length > 0 && (
+                    <div className="bg-[#FFF8E7] p-4 rounded-2xl border border-secondary-container/30 space-y-2">
+                      <h4 className="text-xs font-extrabold text-secondary flex items-center gap-1.5">
+                        <ShieldAlert className="w-4 h-4 text-secondary-container" />
+                        <span>Phác đồ xử lý an toàn sinh học khẩn cấp:</span>
+                      </h4>
+                      <ul className="space-y-1.5 text-xs text-on-surface">
+                        {visionResult.biosafety_actions.map((act, idx) => (
+                          <li key={idx} className="flex items-start gap-2 bg-white/80 p-2 rounded-xl border border-secondary-container/20">
+                            <CheckCircle2 className="w-4 h-4 text-secondary-container shrink-0 mt-0.5" />
+                            <span>{act}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Call Hotline Vet */}
+                  <a
+                    href="tel:19001234"
+                    className="w-full bg-danger text-white rounded-2xl p-4 flex items-center justify-center gap-3 font-title-md text-xs font-bold shadow hover:bg-danger/90 transition-colors"
+                  >
+                    <PhoneCall className="w-4 h-4" />
+                    <span>📞 GỌI BÁC SĨ THÚ Y XÁC NHẬN PHÁC ĐỒ (1900 1234)</span>
+                  </a>
+                </div>
+              )}
+
+              {/* Poultry Diseases Encyclopedia */}
+              <div className="bg-surface-card p-5 rounded-3xl border border-border-subtle shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-subtle pb-3">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-on-surface flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-primary" />
+                      <span>Cẩm Nang Bệnh Gia Cầm Phổ Biến</span>
+                    </h3>
+                    <p className="text-xs text-on-surface-muted">Tra cứu nhanh triệu chứng, nguyên nhân & cách điều trị</p>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative min-w-[220px]">
+                    <Search className="w-4 h-4 text-on-surface-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Tìm tên bệnh hoặc triệu chứng..."
+                      value={diseaseSearchQuery}
+                      onChange={(e) => setDiseaseSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 bg-surface-container-low border border-border-subtle rounded-xl text-xs font-semibold focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredDiseases.map((disease, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setSelectedDisease(disease);
+                        setIsDiseaseModalOpen(true);
+                      }}
+                      className="p-3.5 rounded-2xl border border-border-subtle hover:border-primary bg-white hover:bg-surface-subtle transition-all cursor-pointer space-y-1.5 shadow-sm group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                          disease.urgency_level === 'KHẨN CẤP'
+                            ? 'bg-danger-container text-danger'
+                            : 'bg-surface-container text-primary'
+                        }`}>
+                          {disease.urgency_level}
+                        </span>
+                        <span className="text-[10px] font-bold text-on-surface-muted group-hover:text-primary transition-colors flex items-center gap-0.5">
+                          Chi tiết <ChevronRight className="w-3 h-3" />
+                        </span>
+                      </div>
+
+                      <h4 className="font-extrabold text-xs text-on-surface group-hover:text-primary transition-colors">
+                        🦠 {disease.disease_name}
+                      </h4>
+
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {disease.matching_symptoms.slice(0, 3).map((sym, sIdx) => (
+                          <span key={sIdx} className="text-[10px] bg-surface-container-low text-on-surface-muted px-2 py-0.5 rounded-md font-medium">
+                            {sym}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
