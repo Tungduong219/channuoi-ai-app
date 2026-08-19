@@ -21,6 +21,7 @@ import {
   saveVisionDiagnosis
 } from '@/lib/tenantDb';
 import {
+  Mic,
   Camera,
   Upload,
   AlertTriangle,
@@ -555,18 +556,21 @@ export default function HomeApp() {
           {activeTab === 'home' && (
             <div className="space-y-6 animate-count-up">
               {/* 1. Hero Actions (2 Big Touch Buttons) */}
-              <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <section className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <button
                   onClick={() => setIsMicOpen(true)}
-                  className="pulse-ring relative overflow-hidden bg-primary-container text-on-primary-container rounded-3xl p-5 flex items-center justify-between group transition-transform hover:scale-[1.02] shadow-sm text-left h-24"
+                  className="pulse-ring relative overflow-hidden bg-primary text-white rounded-3xl p-5 flex items-center justify-between group transition-transform hover:scale-[1.02] shadow-sm text-left h-24"
                 >
-                  <div className="flex flex-col relative z-10">
-                    <span className="font-title-lg text-lg sm:text-xl font-bold mb-0.5">🎙️ Ghi Thu Chi</span>
-                    <span className="font-body-md text-xs opacity-90">Bằng Giọng Nói AI</span>
+                  <div className="flex items-center gap-3.5 relative z-10">
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                      <Mic className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-title-lg text-lg sm:text-xl font-black text-white leading-tight">Ghi Thu Chi</span>
+                      <span className="font-body-md text-xs text-white/90 mt-0.5">Bằng Giọng Nói AI</span>
+                    </div>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center relative z-10">
-                    <Sparkles className="w-6 h-6 text-white" />
-                  </div>
+                  <Sparkles className="w-5 h-5 text-secondary-container shrink-0 relative z-10" />
                   <div className="absolute -right-8 -bottom-8 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
                 </button>
 
@@ -574,28 +578,32 @@ export default function HomeApp() {
                   onClick={() => setActiveTab('vision')}
                   className="relative overflow-hidden bg-secondary-container text-on-secondary-container rounded-3xl p-5 flex items-center justify-between group transition-transform hover:scale-[1.02] soft-shadow-hover text-left h-24"
                 >
-                  <div className="flex flex-col relative z-10">
-                    <span className="font-title-lg text-lg sm:text-xl font-bold mb-0.5">📸 Khám Bệnh</span>
-                    <span className="font-body-md text-xs opacity-90">Chụp Ảnh Bệnh Gà AI</span>
+                  <div className="flex items-center gap-3.5 relative z-10">
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                      <Camera className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-title-lg text-lg sm:text-xl font-black text-white leading-tight">Khám Bệnh</span>
+                      <span className="font-body-md text-xs text-white/90 mt-0.5">Chụp Ảnh Bệnh Gà AI</span>
+                    </div>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center relative z-10">
-                    <Camera className="w-6 h-6 text-white" />
-                  </div>
+                  <ChevronRight className="w-5 h-5 text-white/80 shrink-0 relative z-10" />
+                  <div className="absolute -right-8 -bottom-8 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
                 </button>
               </section>
 
-              {/* 2. Core Metrics */}
+              {/* 2. Core Metrics (Horizontal Scroll Carousel on Mobile / 3-Col on Desktop) */}
               <section>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2.5">
                   <h2 className="font-title-md text-sm font-extrabold text-on-surface">Tổng quan hôm nay</h2>
                   <span className="text-[11px] font-bold text-primary bg-surface-subtle px-2.5 py-1 rounded-full border border-primary/20">
                     {safeFlocks.length} Chuồng Nuôi
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex overflow-x-auto gap-3 pb-2 snap-x hide-scrollbar sm:grid sm:grid-cols-3">
                   {/* Metric 1 */}
-                  <div className="bg-surface-card border border-border-subtle rounded-3xl p-4 soft-shadow flex flex-col gap-1 relative overflow-hidden">
+                  <div className="min-w-[160px] sm:min-w-0 snap-start shrink-0 bg-surface-card border border-border-subtle rounded-3xl p-4 soft-shadow flex flex-col gap-1 relative overflow-hidden">
                     <div className="flex items-center gap-2 text-on-surface-muted mb-1">
                       <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">🐔</span>
                       <span className="font-label-bold text-[11px] uppercase tracking-wider">Tổng Đàn</span>
@@ -612,7 +620,7 @@ export default function HomeApp() {
                   </div>
 
                   {/* Metric 2 */}
-                  <div className="bg-surface-card border border-border-subtle rounded-3xl p-4 soft-shadow flex flex-col gap-1 relative overflow-hidden">
+                  <div className="min-w-[160px] sm:min-w-0 snap-start shrink-0 bg-surface-card border border-border-subtle rounded-3xl p-4 soft-shadow flex flex-col gap-1 relative overflow-hidden">
                     <div className="flex items-center gap-2 text-on-surface-muted mb-1">
                       <span className="w-7 h-7 rounded-xl bg-secondary-container/15 text-secondary-container flex items-center justify-center text-xs font-bold">🌾</span>
                       <span className="font-label-bold text-[11px] uppercase tracking-wider">Tiêu Thụ Cám</span>
@@ -629,10 +637,10 @@ export default function HomeApp() {
                   </div>
 
                   {/* Metric 3 */}
-                  <div className="bg-surface-card border border-border-subtle rounded-3xl p-4 soft-shadow flex flex-col gap-1 relative overflow-hidden">
+                  <div className="min-w-[160px] sm:min-w-0 snap-start shrink-0 bg-surface-card border border-border-subtle rounded-3xl p-4 soft-shadow flex flex-col gap-1 relative overflow-hidden">
                     <div className="flex items-center gap-2 text-on-surface-muted mb-1">
                       <span className="w-7 h-7 rounded-xl bg-primary-container/15 text-primary-container flex items-center justify-center text-xs font-bold">💵</span>
-                      <span className="font-label-bold text-[11px] uppercase tracking-wider">Lợi Nhuận Ước Tính</span>
+                      <span className="font-label-bold text-[11px] uppercase tracking-wider">Lợi Nhuận</span>
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className={`font-title-lg text-xl sm:text-2xl font-extrabold ${netProfit >= 0 ? 'text-primary' : 'text-danger'}`}>
@@ -642,7 +650,7 @@ export default function HomeApp() {
                     </div>
                     <div className="flex items-center gap-1 mt-1 text-on-surface-muted text-xs font-semibold">
                       <Info className="w-3.5 h-3.5" />
-                      <span>Giá TT: 56k/kg</span>
+                      <span>Giá: 56k/kg</span>
                     </div>
                     <div className="absolute bottom-0 right-0 w-20 h-20 bg-primary-fixed/10 rounded-tl-full pointer-events-none"></div>
                   </div>
