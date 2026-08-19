@@ -411,8 +411,8 @@ export default function MicModal({
           </div>
         </div>
 
-        {/* Text Input with Instant Submit */}
-        <div className="relative mt-2">
+        {/* Text Input with Instant Submit & Mobile Voice Dictation Tip */}
+        <div className="relative mt-2 space-y-1.5">
           <div className="flex gap-2">
             <input
               type="text"
@@ -423,7 +423,7 @@ export default function MicModal({
                   handleParseVoice(transcript);
                 }
               }}
-              placeholder={isListening ? "Đang nghe giọng nói của bạn..." : "Hoặc gõ câu giao dịch vào đây..."}
+              placeholder={isListening ? "Đang nghe giọng nói của bạn..." : "Chạm vào đây để gõ hoặc bấm Mic trên bàn phím..."}
               className={`flex-1 min-h-[44px] px-3.5 bg-surface-container-low border rounded-2xl text-xs font-semibold focus:outline-none focus:border-primary ${
                 isListening ? 'border-danger bg-danger-container/30' : 'border-border-subtle'
               }`}
@@ -439,6 +439,11 @@ export default function MicModal({
                 <span>Gửi AI</span>
               </button>
             )}
+          </div>
+          
+          <div className="flex items-center gap-1.5 text-[11px] text-primary font-bold bg-surface-subtle p-2 rounded-xl border border-primary/20">
+            <Sparkles className="w-3.5 h-3.5 text-secondary-container shrink-0" />
+            <span>Trên điện thoại: Chạm vào ô trên rồi bấm nút <strong>Mic 🎙️ trên bàn phím</strong> để nói cực chuẩn!</span>
           </div>
         </div>
 
