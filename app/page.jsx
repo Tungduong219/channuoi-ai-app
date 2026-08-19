@@ -355,15 +355,18 @@ export default function HomeApp() {
     if (updatedFarm) setCurrentFarm(updatedFarm);
   };
 
-  // Handle Multi-Image Upload for Vision
+  // Handle Multi-Image Upload for Vision (Up to 15 images)
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    files.slice(0, 5).forEach(file => {
+    files.slice(0, 15).forEach(file => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setVisionImages(prev => [...prev.slice(-4), event.target.result]);
+        setVisionImages(prev => {
+          if (prev.length >= 15) return prev;
+          return [...prev, event.target.result].slice(0, 15);
+        });
       };
       reader.readAsDataURL(file);
     });
@@ -888,42 +891,44 @@ export default function HomeApp() {
                 </a>
               </div>
 
-              {/* Multi-Image Upload Studio Card */}
+              {/* Multi-Image Upload Studio Card (1 to 15 Images) */}
               <div className="bg-surface-card p-5 rounded-3xl border border-border-subtle shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                   <div>
-                    <h3 className="font-extrabold text-sm text-on-surface">📸 Phòng Chụp Ảnh Lâm Sàng</h3>
-                    <p className="text-xs text-on-surface-muted">Tải lên tối đa 5 ảnh cận cảnh các vị trí nghi ngờ</p>
+                    <h3 className="font-extrabold text-sm text-on-surface">📸 Phòng Chụp & Tải Ảnh Lâm Sàng (1–15 Ảnh)</h3>
+                    <p className="text-xs text-on-surface-muted">Tải lên từ 1 đến 15 ảnh cận cảnh các vị trí nghi ngờ (mào, mắt, phân, dáng đứng, nội tạng)</p>
                   </div>
-                  <span className="text-[11px] font-bold text-primary bg-surface-subtle px-3 py-1 rounded-full border border-primary/20">
-                    {visionImages.length}/5 Ảnh
+                  <span className="text-[11px] font-black text-primary bg-surface-subtle px-3 py-1 rounded-full border border-primary/20">
+                    {visionImages.length}/15 Ảnh
                   </span>
                 </div>
 
                 {/* Upload Slots with Visual Hints */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
                   {visionImages.map((img, idx) => (
                     <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary group shadow-sm">
-                      <img src={img} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
+                      <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
                       <button
+                        type="button"
                         onClick={() => setVisionImages(prev => prev.filter((_, i) => i !== idx))}
-                        className="absolute top-1.5 right-1.5 bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-90 hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 bg-black/70 hover:bg-danger text-white rounded-full w-6 h-6 flex items-center justify-center transition-colors shadow"
+                        aria-label="Xóa ảnh"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
-                      <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                      <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
                         Ảnh {idx + 1}
                       </span>
                     </div>
                   ))}
 
-                  {visionImages.length < 5 && (
+                  {visionImages.length < 15 && (
                     <label className="aspect-square rounded-2xl border-2 border-dashed border-border-subtle hover:border-primary flex flex-col items-center justify-center cursor-pointer bg-surface-container-low transition-all hover:bg-surface-hover p-2 text-center group">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 group-hover:bg-primary/20 text-primary flex items-center justify-center mb-1.5 transition-colors">
-                        <Upload className="w-5 h-5" />
+                      <div className="w-9 h-9 rounded-full bg-primary/10 group-hover:bg-primary/20 text-primary flex items-center justify-center mb-1 transition-colors">
+                        <Upload className="w-4 h-4" />
                       </div>
-                      <span className="text-xs font-bold text-on-surface">+ Tải Ảnh Lên</span>
-                      <span className="text-[10px] text-on-surface-muted">Mào / Mắt / Phân</span>
+                      <span className="text-xs font-bold text-on-surface">+ Tải Thêm</span>
+                      <span className="text-[9px] text-on-surface-muted">({15 - visionImages.length} slot trống)</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -935,24 +940,29 @@ export default function HomeApp() {
                   )}
                 </div>
 
-                {/* Guide Hints */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-on-surface-muted bg-surface-container-low p-3 rounded-2xl">
+                {/* Quick Photography Targets Guide */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[11px] text-on-surface-muted bg-surface-container-low p-3 rounded-2xl">
                   <div className="flex items-center gap-1.5">
                     <span className="text-primary font-bold">1.</span>
-                    <span>Chụp cận cảnh mào, mắt, dịch mũi</span>
+                    <span>Chụp cận mào, mắt, dịch mỏ</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-primary font-bold">2.</span>
-                    <span>Chụp bãi phân tươi ở nơi đủ sáng</span>
+                    <span>Chụp bãi phân tươi đủ sáng</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-primary font-bold">3.</span>
-                    <span>Chụp toàn thân hoặc dáng đứng</span>
+                    <span>Chụp toàn thân/dáng đứng</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-primary font-bold">4.</span>
+                    <span>Chụp mổ khám nội tạng (nếu có)</span>
                   </div>
                 </div>
 
                 {/* Analyze Action Button */}
                 <button
+                  type="button"
                   onClick={handleAnalyzeVision}
                   disabled={visionImages.length === 0 || isAnalyzingVision}
                   className="w-full btn-primary-cta text-xs font-extrabold flex items-center justify-center gap-2 shadow-md disabled:opacity-50 min-h-[50px]"
@@ -960,12 +970,12 @@ export default function HomeApp() {
                   {isAnalyzingVision ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>AI Đang Đối Soát Bệnh Án Merck & OIE...</span>
+                      <span>AI Đang Đối Soát 20 Bệnh Gia Cầm Chuẩn Merck & OIE...</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-5 h-5 text-on-surface" />
-                      <span>{visionImages.length > 0 ? `PHÂN TÍCH CHẨN ĐOÁN ${visionImages.length} ẢNH NGAY` : 'CHỌN ẢNH ĐỂ BẮT ĐẦU CHẨN ĐOÁN'}</span>
+                      <span>{visionImages.length > 0 ? `PHÂN TÍCH CHẨN ĐOÁN ${visionImages.length} ẢNH NGAY` : 'CHỌN TỪ 1 ĐẾN 15 ẢNH ĐỂ BẮT ĐẦU'}</span>
                     </>
                   )}
                 </button>
@@ -982,27 +992,50 @@ export default function HomeApp() {
                     }`}>
                       Mức Độ: {visionResult.urgency_level || 'THEO DÕI'}
                     </span>
-                    <span className="text-xs font-extrabold text-primary bg-surface-subtle px-3 py-1 rounded-full border border-primary/20">
-                      Độ Tin Cậy: {visionResult.confidence || 'CAO'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-extrabold text-primary bg-surface-subtle px-3 py-1 rounded-full border border-primary/20">
+                        Đã Phân Tích: {visionResult.images_analyzed || visionImages.length} Ảnh
+                      </span>
+                      <span className="text-xs font-extrabold text-primary bg-surface-subtle px-3 py-1 rounded-full border border-primary/20">
+                        Độ Tin Cậy: {visionResult.overall_confidence || visionResult.confidence || 'CAO'}
+                      </span>
+                    </div>
                   </div>
 
                   <div>
                     <span className="text-[10px] font-bold text-on-surface-muted uppercase tracking-wider block mb-0.5">Chẩn đoán sơ bộ</span>
                     <h3 className="font-extrabold text-xl text-primary flex items-center gap-2">
-                      🐔 {visionResult.primary_suspicion}
+                      🐔 {visionResult.primary_suspicion || 'Chưa đủ dữ liệu đặc trưng'}
                     </h3>
                     <p className="text-xs text-on-surface-muted italic mt-1 bg-surface-container-low p-2.5 rounded-xl border border-border-subtle">
-                      ⚠️ {visionResult.disclaimer}
+                      ⚠️ {visionResult.disclaimer || 'Cảnh báo sớm bằng AI — Không thay thế chẩn đoán của Bác sĩ Thú y.'}
                     </p>
                   </div>
+
+                  {/* Interactive Step-2: Request Additional Targeted Photo */}
+                  {visionResult.request_additional_photo && visionResult.reason_for_next_photo && (
+                    <div className="p-4 rounded-2xl bg-accent-warm-container border-2 border-secondary-container text-on-surface space-y-2">
+                      <div className="flex items-center gap-2 text-secondary font-black text-xs uppercase">
+                        <Camera className="w-4 h-4 text-secondary-container" />
+                        <span>🎯 Yêu cầu chụp thêm góc ảnh để phân biệt chính xác 100%:</span>
+                      </div>
+                      <p className="text-xs font-bold text-on-surface">
+                        {visionResult.reason_for_next_photo}
+                      </p>
+                      <label className="btn-primary-cta text-xs px-4 py-2 inline-flex items-center gap-2 cursor-pointer shadow">
+                        <Upload className="w-4 h-4" />
+                        <span>+ CHỤP / TẢI THÊM ẢNH BỔ SUNG ({visionResult.next_photo_target || 'MỤC TIÊU'})</span>
+                        <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                      </label>
+                    </div>
+                  )}
 
                   {/* Observed Symptoms */}
                   {visionResult.observed_symptoms && visionResult.observed_symptoms.length > 0 && (
                     <div className="bg-surface-subtle p-4 rounded-2xl border border-primary/20 space-y-2">
                       <h4 className="text-xs font-extrabold text-primary flex items-center gap-1.5">
                         <Activity className="w-4 h-4" />
-                        <span>Triệu chứng lâm sàng phát hiện qua ảnh:</span>
+                        <span>Triệu chứng lâm sàng phát hiện qua {visionImages.length} ảnh:</span>
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {visionResult.observed_symptoms.map((s, idx) => (
@@ -1011,6 +1044,44 @@ export default function HomeApp() {
                             <span className="text-on-surface">{s.symptom}</span>
                             {s.severity && (
                               <span className="text-[10px] text-danger font-bold block mt-0.5">Mức độ: {s.severity}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Differential Diagnosis Cross-Check Accordion */}
+                  {visionResult.differential_diagnosis && visionResult.differential_diagnosis.length > 0 && (
+                    <div className="bg-white p-4 rounded-2xl border border-border-subtle space-y-2.5">
+                      <h4 className="text-xs font-extrabold text-on-surface flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-primary" />
+                        <span>Chẩn đoán phân biệt chéo các bệnh tương tự ({visionResult.differential_diagnosis.length} bệnh):</span>
+                      </h4>
+                      <div className="space-y-2">
+                        {visionResult.differential_diagnosis.map((diff, dIdx) => (
+                          <div key={dIdx} className="p-3 rounded-xl bg-surface-container-low border border-border-subtle space-y-1 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-on-surface">🦠 {diff.disease_name}</span>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                diff.match_score === 'CAO'
+                                  ? 'bg-danger text-white'
+                                  : diff.match_score === 'TRUNG BÌNH'
+                                  ? 'bg-secondary-container text-on-secondary-container'
+                                  : 'bg-surface-container text-on-surface-muted'
+                              }`}>
+                                Độ Khớp: {diff.match_score}
+                              </span>
+                            </div>
+                            {diff.matching_symptoms && diff.matching_symptoms.length > 0 && (
+                              <p className="text-[11px] text-on-surface-muted">
+                                Triệu chứng trùng khớp: <strong className="text-primary">{diff.matching_symptoms.join(', ')}</strong>
+                              </p>
+                            )}
+                            {diff.ruling_out_reason && (
+                              <p className="text-[11px] text-danger font-semibold italic">
+                                💡 Lý do loại trừ/phân biệt: {diff.ruling_out_reason}
+                              </p>
                             )}
                           </div>
                         ))}
