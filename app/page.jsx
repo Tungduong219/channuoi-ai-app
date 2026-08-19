@@ -161,6 +161,7 @@ export default function HomeApp() {
   // Disease Modal & Vision State
   const [selectedDisease, setSelectedDisease] = useState(null);
   const [isDiseaseModalOpen, setIsDiseaseModalOpen] = useState(false);
+  const [isEncyclopediaModalOpen, setIsEncyclopediaModalOpen] = useState(false);
   const [visionImages, setVisionImages] = useState([]);
   const [isAnalyzingVision, setIsAnalyzingVision] = useState(false);
   const [visionResult, setVisionResult] = useState(null);
@@ -664,77 +665,92 @@ export default function HomeApp() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
                 {/* Left Column (60% on desktop = 7 cols) */}
                 <div className="lg:col-span-7 flex flex-col gap-6">
-                  {/* Daily Checklist ("Việc cần làm hôm nay") */}
-                  <section className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-title-md text-sm font-extrabold text-on-surface">Việc cần làm hôm nay</h3>
-                      <span className="text-[11px] font-bold text-on-surface-muted">
-                        {dailyTasks.filter(t => t.completed).length}/{dailyTasks.length} Đã xong
-                      </span>
+                  {/* Nearest Vaccine Reminder (Focused on the upcoming/urgent vaccine) */}
+                  <section className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center font-bold text-sm">
+                          📅
+                        </span>
+                        <div>
+                          <h3 className="font-title-md text-sm font-extrabold text-on-surface">Lịch Tiêm Phòng Gần Nhất</h3>
+                          <p className="text-[11px] text-on-surface-muted">
+                            {currentFlock ? `🐔 ${currentFlock.flockName} (${getAgeInDays(currentFlock.startDate)} ngày tuổi)` : 'Toàn trang trại'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('flocks')}
+                        className="text-xs font-bold text-primary hover:underline flex items-center gap-0.5"
+                      >
+                        <span>Xem toàn bộ lịch tiêm</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
-                    <div className="flex flex-col gap-2.5">
-                      {/* Urgent Vaccine Task directly connected to live data */}
-                      {safeVaccines.find(v => !v.isCompleted && getAgeInDays(currentFlock?.startDate) >= v.dayAge) && (
-                        <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-danger-container bg-danger-container/20">
-                          <input
-                            type="checkbox"
-                            checked={false}
-                            onChange={() => {
-                              const v = safeVaccines.find(x => !x.isCompleted && getAgeInDays(currentFlock?.startDate) >= x.dayAge);
-                              if (v) handleToggleVaccine(v.scheduleId, false);
-                            }}
-                            className="mt-0.5 w-5 h-5 rounded-lg border-danger text-danger focus:ring-danger cursor-pointer"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-body-lg text-xs font-extrabold text-on-surface truncate">
-                              Tiêm phòng: {safeVaccines.find(x => !x.isCompleted && getAgeInDays(currentFlock?.startDate) >= x.dayAge)?.diseaseName}
-                            </p>
-                            <p className="font-body-sm text-[11px] text-danger mt-0.5 flex items-center gap-1 font-bold">
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              <span>Đến hạn tiêm ngay hôm nay!</span>
-                            </p>
-                          </div>
-                          <span className="px-2 py-0.5 bg-white rounded-full border border-danger/30 text-[10px] font-extrabold text-danger shrink-0">
-                            Khẩn cấp
-                          </span>
-                        </div>
-                      )}
+                    {(() => {
+                      const age = getAgeInDays(currentFlock?.startDate);
+                      const pendingVaccines = safeVaccines.filter(v => !v.isCompleted);
+                      const nearestVaccine = pendingVaccines.sort((a, b) => a.dayAge - b.dayAge)[0];
 
-                      {/* Regular Tasks */}
-                      {dailyTasks.map(task => {
-                        const Icon = task.icon;
+                      if (!nearestVaccine) {
                         return (
-                          <div
-                            key={task.id}
-                            onClick={() => toggleTask(task.id)}
-                            className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                              task.completed
-                                ? 'bg-surface-subtle border-border-subtle opacity-70'
-                                : 'border-border-subtle bg-white hover:bg-surface-hover'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={task.completed}
-                              onChange={() => toggleTask(task.id)}
-                              className="mt-0.5 w-5 h-5 rounded-lg border-border-subtle text-primary focus:ring-primary cursor-pointer"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-body-lg text-xs font-bold ${task.completed ? 'line-through text-on-surface-muted' : 'text-on-surface'}`}>
-                                {task.title}
-                              </p>
-                              <p className="font-body-sm text-[11px] text-on-surface-muted mt-0.5">
-                                {task.time} {task.completed && '• Đã hoàn thành'}
-                              </p>
-                            </div>
-                            <div className="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-primary shrink-0">
-                              <Icon className="w-4 h-4" />
+                          <div className="p-4 rounded-2xl bg-surface-subtle border border-primary/20 flex items-center gap-3">
+                            <span className="text-2xl">🎉</span>
+                            <div>
+                              <p className="text-xs font-extrabold text-primary">Đàn Gà Đã Hoàn Thành Toàn Bộ Lịch Tiêm!</p>
+                              <p className="text-[11px] text-on-surface-muted">Chưa có lịch tiêm mới nào cần thực hiện.</p>
                             </div>
                           </div>
                         );
-                      })}
-                    </div>
+                      }
+
+                      const daysDiff = nearestVaccine.dayAge - age;
+                      const isOverdueOrToday = daysDiff <= 0;
+                      const dateStr = getVaccineDate(currentFlock?.startDate, nearestVaccine.dayAge);
+
+                      return (
+                        <div className={`p-4 rounded-2xl border-2 transition-all ${
+                          isOverdueOrToday
+                            ? 'bg-danger-container/20 border-danger'
+                            : 'bg-surface-subtle border-primary/30'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                isOverdueOrToday ? 'bg-danger text-white' : 'bg-primary text-white'
+                              }`}>
+                                {isOverdueOrToday ? '⚡ Đến Hạn Tiêm Ngay' : `⏳ Còn ${daysDiff} Ngày`}
+                              </span>
+                              <span className="text-[11px] font-extrabold text-on-surface-muted">
+                                📅 {dateStr}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-extrabold bg-white px-2 py-0.5 rounded-full border border-border-subtle text-primary">
+                              {nearestVaccine.dayAge} ngày tuổi
+                            </span>
+                          </div>
+
+                          <div className="my-2.5">
+                            <h4 className="text-sm sm:text-base font-black text-on-surface">
+                              🐔 {nearestVaccine.diseaseName}
+                            </h4>
+                            <p className="text-xs text-on-surface-muted mt-0.5">
+                              Loại vắc-xin: <strong className="text-primary">{nearestVaccine.vaccineType}</strong> • Đường dùng: <strong>{nearestVaccine.method}</strong>
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleVaccine(nearestVaccine.scheduleId, false)}
+                            className="w-full btn-primary-cta py-2.5 text-xs font-extrabold flex items-center justify-center gap-2 shadow-sm"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-on-surface" />
+                            <span>ĐÃ TIÊM XONG MŨI NÀY (Bấm để ghi nhận)</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </section>
 
                   {/* Quick Access to Khám Bệnh Banner */}
@@ -882,13 +898,23 @@ export default function HomeApp() {
                   </h2>
                   <p className="text-xs text-on-surface-muted">Tiêu chuẩn chẩn đoán lâm sàng Merck Veterinary Manual & OIE</p>
                 </div>
-                <a
-                  href="tel:19001234"
-                  className="px-3 py-1.5 bg-danger text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-danger/90"
-                >
-                  <PhoneCall className="w-3.5 h-3.5" />
-                  <span>Gọi Bác Sĩ</span>
-                </a>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEncyclopediaModalOpen(true)}
+                    className="px-3 py-1.5 bg-surface-subtle text-primary border border-primary/20 hover:bg-surface-hover rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Tra Cứu 20 Bệnh</span>
+                  </button>
+                  <a
+                    href="tel:19001234"
+                    className="px-3 py-1.5 bg-danger text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-danger/90"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5" />
+                    <span>Gọi Bác Sĩ</span>
+                  </a>
+                </div>
               </div>
 
               {/* Multi-Image Upload Studio Card (1 to 15 Images) */}
@@ -1107,6 +1133,61 @@ export default function HomeApp() {
                     </div>
                   )}
 
+                  {/* Targeted Treatment Protocol for Diagnosed / Suspected Diseases */}
+                  {(() => {
+                    const primaryName = (visionResult.primary_suspicion || '').toLowerCase();
+                    const matchedDisease = COMMON_POULTRY_DISEASES.find(d => 
+                      primaryName.includes(d.disease_name.toLowerCase()) || 
+                      d.disease_name.toLowerCase().includes(primaryName) ||
+                      (d.pathogen && primaryName.includes(d.pathogen.toLowerCase()))
+                    ) || COMMON_POULTRY_DISEASES[0];
+
+                    return (
+                      <div className="bg-white p-5 rounded-3xl border-2 border-primary/40 space-y-3.5 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-border-subtle pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                              <BookOpen className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black text-primary uppercase tracking-wider">
+                                Cẩm Nang Phác Đồ Đặc Trị Cho Bệnh Nghi Ngờ
+                              </h4>
+                              <p className="text-xs font-black text-on-surface">
+                                💊 {matchedDisease.disease_name}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-extrabold bg-surface-subtle text-primary px-2.5 py-1 rounded-full border border-primary/20">
+                            Merck & OIE
+                          </span>
+                        </div>
+
+                        {/* Treatment Protocol */}
+                        <div className="p-3.5 rounded-2xl bg-surface-container-low border border-border-subtle space-y-1.5">
+                          <span className="text-xs font-extrabold text-primary flex items-center gap-1.5">
+                            <Pill className="w-4 h-4 text-primary" />
+                            Phác đồ điều trị & Hoạt chất thuốc thú y khuyên dùng:
+                          </span>
+                          <p className="text-xs text-on-surface font-medium leading-relaxed">
+                            {matchedDisease.treatment_protocol}
+                          </p>
+                        </div>
+
+                        {/* Prevention Guide */}
+                        <div className="p-3.5 rounded-2xl bg-[#FFF8E7] border border-secondary-container/30 space-y-1.5">
+                          <span className="text-xs font-extrabold text-secondary flex items-center gap-1.5">
+                            <ShieldCheck className="w-4 h-4 text-secondary-container" />
+                            Hướng dẫn phòng ngừa cho đàn:
+                          </span>
+                          <p className="text-xs text-on-surface font-medium leading-relaxed">
+                            {matchedDisease.prevention_guide}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Call Hotline Vet */}
                   <a
                     href="tel:19001234"
@@ -1117,69 +1198,6 @@ export default function HomeApp() {
                   </a>
                 </div>
               )}
-
-              {/* Poultry Diseases Encyclopedia */}
-              <div className="bg-surface-card p-5 rounded-3xl border border-border-subtle shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-subtle pb-3">
-                  <div>
-                    <h3 className="font-extrabold text-sm text-on-surface flex items-center gap-1.5">
-                      <BookOpen className="w-4 h-4 text-primary" />
-                      <span>Cẩm Nang Bệnh Gia Cầm Phổ Biến</span>
-                    </h3>
-                    <p className="text-xs text-on-surface-muted">Tra cứu nhanh triệu chứng, nguyên nhân & cách điều trị</p>
-                  </div>
-
-                  {/* Search Bar */}
-                  <div className="relative min-w-[220px]">
-                    <Search className="w-4 h-4 text-on-surface-muted absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Tìm tên bệnh hoặc triệu chứng..."
-                      value={diseaseSearchQuery}
-                      onChange={(e) => setDiseaseSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-1.5 bg-surface-container-low border border-border-subtle rounded-xl text-xs font-semibold focus:outline-none focus:border-primary"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {filteredDiseases.map((disease, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        setSelectedDisease(disease);
-                        setIsDiseaseModalOpen(true);
-                      }}
-                      className="p-3.5 rounded-2xl border border-border-subtle hover:border-primary bg-white hover:bg-surface-subtle transition-all cursor-pointer space-y-1.5 shadow-sm group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
-                          disease.urgency_level === 'KHẨN CẤP'
-                            ? 'bg-danger-container text-danger'
-                            : 'bg-surface-container text-primary'
-                        }`}>
-                          {disease.urgency_level}
-                        </span>
-                        <span className="text-[10px] font-bold text-on-surface-muted group-hover:text-primary transition-colors flex items-center gap-0.5">
-                          Chi tiết <ChevronRight className="w-3 h-3" />
-                        </span>
-                      </div>
-
-                      <h4 className="font-extrabold text-xs text-on-surface group-hover:text-primary transition-colors">
-                        🦠 {disease.disease_name}
-                      </h4>
-
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {disease.matching_symptoms.slice(0, 3).map((sym, sIdx) => (
-                          <span key={sIdx} className="text-[10px] bg-surface-container-low text-on-surface-muted px-2 py-0.5 rounded-md font-medium">
-                            {sym}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
@@ -1826,6 +1844,88 @@ export default function HomeApp() {
         defaultFlockId={selectedFlockId}
         ttsEnabled={ttsEnabled}
       />
+
+      {/* 20 Poultry Diseases Search Modal */}
+      {isEncyclopediaModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsEncyclopediaModalOpen(false); }}
+        >
+          <div 
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-2xl p-5 sm:p-6 shadow-2xl animate-count-up relative border border-border-subtle max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border-subtle pb-3 shrink-0">
+              <div>
+                <h3 className="font-extrabold text-base text-on-surface flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                  <span>Cẩm Nang 20 Bệnh Gia Cầm Chuẩn Merck & OIE</span>
+                </h3>
+                <p className="text-xs text-on-surface-muted">Tra cứu nhanh triệu chứng, phân biệt chéo & phác đồ điều trị</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEncyclopediaModalOpen(false)}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-danger-container text-on-surface-muted hover:text-danger transition-colors"
+                aria-label="Đóng cẩm nang"
+              >
+                <X className="w-5 h-5 stroke-[2.5]" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative my-3 shrink-0">
+              <Search className="w-4 h-4 text-on-surface-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Tìm theo tên bệnh hoặc triệu chứng (ví dụ: phân xanh, sưng mắt, cầu trùng)..."
+                value={diseaseSearchQuery}
+                onChange={(e) => setDiseaseSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-border-subtle rounded-2xl text-xs font-semibold focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            {/* Disease List Scrollable */}
+            <div className="overflow-y-auto space-y-2.5 pr-1 flex-1">
+              {filteredDiseases.map((disease, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    setSelectedDisease(disease);
+                    setIsDiseaseModalOpen(true);
+                  }}
+                  className="p-3.5 rounded-2xl border border-border-subtle hover:border-primary bg-surface-container-low hover:bg-surface-subtle transition-all cursor-pointer space-y-1.5 shadow-sm group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                      disease.urgency_level === 'KHẨN CẤP'
+                        ? 'bg-danger-container text-danger'
+                        : 'bg-surface-container text-primary'
+                    }`}>
+                      {disease.urgency_level}
+                    </span>
+                    <span className="text-[11px] font-bold text-on-surface-muted group-hover:text-primary transition-colors flex items-center gap-0.5">
+                      Xem phác đồ <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+
+                  <h4 className="font-extrabold text-xs text-on-surface group-hover:text-primary transition-colors">
+                    🦠 {disease.disease_name}
+                  </h4>
+
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {disease.matching_symptoms.slice(0, 3).map((sym, sIdx) => (
+                      <span key={sIdx} className="text-[10px] bg-white text-on-surface-muted px-2 py-0.5 rounded-md font-medium border border-border-subtle">
+                        {sym}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
