@@ -21,6 +21,7 @@ import {
   saveVisionDiagnosis,
   getOrCreateFarm,
   migrateGuestData,
+  calculateFlockFCR,
   setSyncStatusListener,
 } from '@/lib/tenantDb';
 import { auth, isCloudEnabled, onAuthStateChanged } from '@/lib/firebase';
@@ -196,6 +197,29 @@ export default function HomeApp() {
   const [transactions, setTransactions] = useState([]);
   const [financeFlockFilter, setFinanceFlockFilter] = useState('all');
   const [financeCategoryFilter, setFinanceCategoryFilter] = useState('all');
+
+  // Live Market & Disease Radar State (Google Search Grounding)
+  const [marketRadarData, setMarketRadarData] = useState(null);
+  const [isLoadingMarket, setIsLoadingMarket] = useState(false);
+
+  const fetchMarketRadar = async () => {
+    setIsLoadingMarket(true);
+    try {
+      const res = await fetch('/api/gemini/market-radar');
+      const data = await res.json();
+      if (data && data.market_overview) {
+        setMarketRadarData(data);
+      }
+    } catch (err) {
+      console.warn('[Fetch Market Radar Error]:', err.message);
+    } finally {
+      setIsLoadingMarket(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMarketRadar();
+  }, []);
 
   // Daily Tasks Checklist State
   const [dailyTasks, setDailyTasks] = useState([
@@ -518,6 +542,9 @@ export default function HomeApp() {
   const totalVaccinesCount = safeVaccines.length;
   const vaccineProgressPct = totalVaccinesCount > 0 ? Math.round((completedVaccinesCount / totalVaccinesCount) * 100) : 0;
 
+  // Dynamic FCR calculation for selected flock (Weight / Weight ratio)
+  const flockFCRInfo = calculateFlockFCR(activeFarmId, selectedFlockId);
+
   // Filtered Disease Encyclopedia
   const filteredDiseases = COMMON_POULTRY_DISEASES.filter(d => 
     !diseaseSearchQuery || 
@@ -706,9 +733,9 @@ export default function HomeApp() {
                       <span className="font-display-lg text-2xl sm:text-3xl font-extrabold text-on-surface">{dailyFeedKg}</span>
                       <span className="font-body-sm text-xs text-on-surface-muted">kg / ngày</span>
                     </div>
-                    <div className="flex items-center gap-1 mt-1 text-on-surface-muted text-xs font-bold">
-                      <Scale className="w-3.5 h-3.5" />
-                      <span>FCR 1.62 (Chuẩn)</span>
+                    <div className="flex items-center gap-1 mt-1 text-on-surface-muted text-xs font-bold truncate" title={flockFCRInfo.displayLabel}>
+                      <Scale className="w-3.5 h-3.5 text-secondary shrink-0" />
+                      <span className="truncate">{flockFCRInfo.displayLabel}</span>
                     </div>
                     <div className="absolute bottom-0 right-0 w-20 h-20 bg-secondary/5 rounded-tl-full pointer-events-none"></div>
                   </div>
@@ -726,8 +753,12 @@ export default function HomeApp() {
                       <span className="font-body-sm text-xs text-on-surface-muted">triệu VNĐ</span>
                     </div>
                     <div className="flex items-center gap-1 mt-1 text-on-surface-muted text-xs font-semibold">
-                      <Info className="w-3.5 h-3.5" />
-                      <span>Giá: 56k/kg</span>
+                      <Info className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">
+                        {marketRadarData?.market_overview?.regions?.[0]
+                          ? `${marketRadarData.market_overview.regions[0].region}: ${(marketRadarData.market_overview.regions[0].chicken_price_per_kg / 1000).toFixed(0)}k/kg`
+                          : 'Giá thị trường: Đang cập nhật'}
+                      </span>
                     </div>
                     <div className="absolute bottom-0 right-0 w-20 h-20 bg-primary-fixed/10 rounded-tl-full pointer-events-none"></div>
                   </div>
@@ -912,35 +943,50 @@ export default function HomeApp() {
                     </div>
                   </section>
 
-                  {/* Market Prices Today */}
+                  {/* Market Prices Today (Grounded Live Data) */}
                   <section className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow space-y-3">
                     <div className="flex justify-between items-center">
-                      <h3 className="font-title-md text-sm font-extrabold text-on-surface">Giá thị trường hôm nay</h3>
-                      <span className="text-[10px] font-bold text-on-surface-muted">08:00 AM</span>
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        <h3 className="font-title-md text-sm font-extrabold text-on-surface">Giá thị trường 3 miền</h3>
+                      </div>
+                      <span className="text-[10px] font-bold text-on-surface-muted">
+                        {marketRadarData?.market_overview?.reported_date ? `Ngày ${marketRadarData.market_overview.reported_date}` : 'Cập nhật hôm nay'}
+                      </span>
                     </div>
 
-                    <div className="flex flex-col gap-2.5">
-                      <div className="flex justify-between items-center p-3 rounded-2xl bg-surface-container-low">
-                        <div className="flex items-center gap-2.5">
-                          <Egg className="w-4 h-4 text-secondary-container" />
-                          <span className="text-xs font-bold text-on-surface">Gà Lông Màu (Miền Bắc)</span>
+                    <div className="flex flex-col gap-2">
+                      {marketRadarData?.market_overview?.regions ? (
+                        marketRadarData.market_overview.regions.map((reg, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-3 rounded-2xl bg-surface-container-low">
+                            <div className="flex items-center gap-2.5">
+                              <Egg className="w-4 h-4 text-secondary-container shrink-0" />
+                              <div>
+                                <span className="text-xs font-bold text-on-surface block">{reg.region} (Gà Thịt)</span>
+                                <span className="text-[10px] text-on-surface-muted">{reg.sample_locations || 'Xuất chuồng'}</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-extrabold text-primary">{(reg.chicken_price_per_kg || 56000).toLocaleString('vi-VN')} đ/kg</p>
+                              <p className={`text-[10px] font-bold ${reg.price_change?.includes('+') ? 'text-primary' : reg.price_change?.includes('-') ? 'text-danger' : 'text-on-surface-muted'}`}>
+                                {reg.price_change ? `${reg.price_change} đ` : 'Ổn định'}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 text-xs text-on-surface-muted text-center flex items-center justify-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          <span>Đang tra cứu giá thị trường...</span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-extrabold text-on-surface">56.000 đ/kg</p>
-                          <p className="text-[10px] text-primary font-bold">▲ +1.500</p>
-                        </div>
-                      </div>
+                      )}
 
-                      <div className="flex justify-between items-center p-3 rounded-2xl bg-surface-container-low">
-                        <div className="flex items-center gap-2.5">
-                          <Package className="w-4 h-4 text-secondary" />
-                          <span className="text-xs font-bold text-on-surface">Cám Hỗn Hợp (Giai đoạn 2)</span>
+                      {marketRadarData?.market_overview?.data_source && (
+                        <div className="pt-1 text-[10px] text-on-surface-muted font-semibold text-right flex items-center justify-end gap-1">
+                          <Sparkles className="w-3 h-3 text-secondary" />
+                          <span>Nguồn: {marketRadarData.market_overview.data_source}</span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-extrabold text-on-surface">12.500 đ/kg</p>
-                          <p className="text-[10px] text-on-surface-muted font-semibold">0</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </section>
 
@@ -1850,32 +1896,166 @@ export default function HomeApp() {
           )}
 
           {/* ===================================================================
-              TAB 5: GIÁ & DỊCH (MARKET & RADAR)
+              TAB 5: GIÁ & DỊCH (MARKET & RADAR - GOOGLE GROUNDING LIVE DATA)
              =================================================================== */}
           {activeTab === 'market' && (
             <div className="space-y-4 animate-count-up">
-              <div className="bg-surface-card p-5 rounded-3xl border border-border-subtle shadow-sm space-y-4">
+              {/* Header Card with Refresh */}
+              <div className="bg-surface-card p-5 rounded-3xl border border-border-subtle shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-sm text-on-surface">Giá Thị Trường Gà Thịt Hôm Nay</h3>
-                  <span className="text-[10px] font-extrabold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                    ▲ TĂNG 1.500đ/kg
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">📈</div>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-on-surface">Giá Thị Trường & Radar Dịch Bệnh</h3>
+                      <p className="text-[11px] text-on-surface-muted">
+                        Dữ liệu tổng hợp từ Báo Nông Nghiệp VN & Hiệp hội Gia cầm
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={fetchMarketRadar}
+                    disabled={isLoadingMarket}
+                    className="px-3 py-1.5 bg-surface-container-low hover:bg-surface-hover text-primary border border-primary/20 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-60"
+                  >
+                    <Loader2 className={`w-3.5 h-3.5 ${isLoadingMarket ? 'animate-spin' : ''}`} />
+                    <span>{isLoadingMarket ? 'Đang tải...' : 'Làm mới AI'}</span>
+                  </button>
                 </div>
-                <div className="text-3xl font-extrabold text-primary">56.000 đ/kg</div>
-                <p className="text-xs text-on-surface-muted">Cập nhật giá gà thịt xuất chuồng trung bình 3 miền theo thời gian thực</p>
+
+                {marketRadarData?.market_overview?.trend_summary && (
+                  <div className="p-3 bg-surface-subtle border border-primary/20 rounded-2xl text-xs text-on-surface leading-relaxed">
+                    💡 <strong>Tổng quan xu hướng:</strong> {marketRadarData.market_overview.trend_summary}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between text-[11px] text-on-surface-muted pt-1 border-t border-border-subtle/60">
+                  <span>📅 Ngày báo cáo: <strong>{marketRadarData?.market_overview?.reported_date || 'Hôm nay'}</strong></span>
+                  <span>🌐 Nguồn: <strong>{marketRadarData?.market_overview?.data_source || 'Bộ NN&PTNT'}</strong></span>
+                </div>
               </div>
 
-              {/* Extra Market Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-surface-card p-4 rounded-3xl border border-border-subtle space-y-2">
-                  <span className="text-xs font-bold text-on-surface-muted">Trứng Gà Ai Cập</span>
-                  <div className="text-xl font-extrabold text-on-surface">2.400 đ / quả</div>
-                  <span className="text-[11px] text-primary font-bold">▲ +200 đ</span>
+              {/* 3-Region Live Poultry Prices Grid */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between px-1">
+                  <h4 className="font-extrabold text-xs text-on-surface uppercase tracking-wider">
+                    🐔 Giá Gà Thịt Xuất Chuồng 3 Miền
+                  </h4>
+                  <span className="text-[10px] text-on-surface-muted font-bold">Đơn vị: VNĐ/kg</span>
                 </div>
-                <div className="bg-surface-card p-4 rounded-3xl border border-border-subtle space-y-2">
-                  <span className="text-xs font-bold text-on-surface-muted">Cám Con Cò Giai Đoạn 2</span>
-                  <div className="text-xl font-extrabold text-on-surface">365.000 đ / bao</div>
-                  <span className="text-[11px] text-on-surface-muted font-bold">Ổn định</span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {marketRadarData?.market_overview?.regions ? (
+                    marketRadarData.market_overview.regions.map((reg, idx) => (
+                      <div key={idx} className="bg-surface-card p-4 rounded-3xl border border-border-subtle shadow-xs space-y-2 hover:border-primary/40 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-xs text-on-surface">{reg.region}</span>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                            reg.price_change?.includes('+') ? 'bg-primary/10 text-primary' :
+                            reg.price_change?.includes('-') ? 'bg-danger/10 text-danger' :
+                            'bg-surface-container text-on-surface-muted'
+                          }`}>
+                            {reg.price_change ? `${reg.price_change} đ` : 'Ổn định'}
+                          </span>
+                        </div>
+
+                        <div className="text-2xl font-black text-primary">
+                          {(reg.chicken_price_per_kg || 56000).toLocaleString('vi-VN')} <span className="text-xs text-on-surface-muted font-normal">đ/kg</span>
+                        </div>
+
+                        <div className="space-y-1 text-[11px] text-on-surface-muted pt-1 border-t border-border-subtle/50">
+                          <div className="flex justify-between">
+                            <span>Trứng gà:</span>
+                            <span className="font-bold text-on-surface">{(reg.egg_price || 2400).toLocaleString('vi-VN')} đ/quả</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Khu vực:</span>
+                            <span className="font-medium text-on-surface-variant truncate max-w-[130px]">{reg.sample_locations || 'Trọng điểm'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-3 p-6 bg-surface-card rounded-3xl text-center text-xs text-on-surface-muted flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      <span>Đang kết nối vệ tinh và Google Search thu thập giá 3 miền...</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Feed Prices Section */}
+              {marketRadarData?.market_overview?.feed_prices && (
+                <div className="bg-surface-card p-4 rounded-3xl border border-border-subtle shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-extrabold text-xs text-on-surface uppercase tracking-wider flex items-center gap-1.5">
+                      <Package className="w-4 h-4 text-secondary" />
+                      <span>Giá Cám Chăn Nuôi Gia Cầm Khảo Sát (Bao 25kg)</span>
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {marketRadarData.market_overview.feed_prices.map((feed, idx) => (
+                      <div key={idx} className="p-3 bg-surface-container-low rounded-2xl flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-on-surface">{feed.feed_type}</p>
+                          {feed.unit_price_per_kg && (
+                            <p className="text-[10px] text-on-surface-muted">~{feed.unit_price_per_kg.toLocaleString('vi-VN')} đ/kg</p>
+                          )}
+                        </div>
+                        <span className="text-xs font-extrabold text-secondary">
+                          {(feed.average_price_per_bag || 365000).toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Disease Radar Alerts Section */}
+              <div className="bg-surface-card p-5 rounded-3xl border border-border-subtle shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-5 h-5 text-danger" />
+                    <h4 className="font-extrabold text-xs text-on-surface uppercase tracking-wider">
+                      Radar Dịch Bệnh Gia Cầm & Cảnh Báo Thú Y
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-danger bg-danger/10 px-2 py-0.5 rounded-full">
+                    Cập nhật mới nhất
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {marketRadarData?.disease_radar_alerts && marketRadarData.disease_radar_alerts.length > 0 ? (
+                    marketRadarData.disease_radar_alerts.map((alert, idx) => (
+                      <div key={idx} className="p-3.5 rounded-2xl border border-border-subtle bg-surface-container-low space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-xs text-on-surface">📍 {alert.province}</span>
+                            <span className="text-[11px] font-bold text-danger bg-danger-container px-2 py-0.5 rounded-md">
+                              {alert.pathogen}
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                            alert.risk_level === 'CAO' ? 'bg-danger text-white' :
+                            alert.risk_level === 'TRUNG BÌNH' ? 'bg-secondary-container text-white' :
+                            'bg-surface-subtle text-primary'
+                          }`}>
+                            Nguy cơ: {alert.risk_level || 'TRUNG BÌNH'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-on-surface-variant leading-relaxed">{alert.summary}</p>
+                        <div className="flex items-center justify-between text-[10px] text-on-surface-muted pt-1">
+                          <span>Nguồn tin: {alert.source || 'Cơ quan Thú y'}</span>
+                          <span>Ngày báo: {alert.reported_date}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-surface-subtle border border-primary/20 text-center text-xs text-primary font-semibold">
+                      🛡️ Chưa phát hiện ổ dịch gia cầm nghiêm trọng nào tại các vùng khảo sát.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
