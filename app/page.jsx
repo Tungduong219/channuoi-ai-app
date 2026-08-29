@@ -18,8 +18,11 @@ import {
   saveFlockVaccines,
   addHealthLog,
   subscribeHealthLogs,
-  saveVisionDiagnosis
+  saveVisionDiagnosis,
+  getOrCreateFarm,
+  setSyncStatusListener,
 } from '@/lib/tenantDb';
+import { auth, isCloudEnabled, onAuthStateChanged } from '@/lib/firebase';
 import {
   Mic,
   Camera,
@@ -146,10 +149,13 @@ export default function HomeApp() {
 
   // Multi-Tenant Farm & Auth State
   const [activeFarmId, setActiveFarmId] = useState(DEFAULT_GUEST_FARM_ID);
-  const [userRole, setUserRole] = useState('OWNER');
-  const [user, setUser] = useState(null);
+  const [userRole, setUserRole]     = useState('OWNER');
+  const [user, setUser]             = useState(null);
   const [currentFarm, setCurrentFarm] = useState(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Cloud Sync Status — 'synced' | 'error' | 'offline'
+  const [syncStatus, setSyncStatus] = useState(isCloudEnabled ? 'synced' : 'offline');
 
   // Multi-Flock Management State
   const [flocks, setFlocks] = useState([]);
@@ -182,6 +188,44 @@ export default function HomeApp() {
   const toggleTask = (taskId) => {
     setDailyTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t));
   };
+
+  // 0a. Kết nối listener cập nhật badge đồng bộ Cloud (Firestore write events)
+  useEffect(() => {
+    setSyncStatusListener((status) => setSyncStatus(status));
+    return () => setSyncStatusListener(null);
+  }, []);
+
+  // 0b. Lắng nghe trạng thái xác thực Google theo thời gian thực (onAuthStateChanged)
+  //     Khi user đăng nhập hoặc đăng xuất ở bất kỳ tab nào, app tự đồng bộ ngay lập tức
+  useEffect(() => {
+    if (!isCloudEnabled || !auth) return;
+
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const { farm } = await getOrCreateFarm(firebaseUser);
+          setActiveFarmId(farm.farmId);
+          setUser(prev => prev?.uid === firebaseUser.uid ? prev : {
+            name:     firebaseUser.displayName,
+            email:    firebaseUser.email,
+            photoURL: firebaseUser.photoURL,
+            uid:      firebaseUser.uid,
+            farmId:   farm.farmId,
+            farmName: farm.farmName,
+          });
+          setUserRole('OWNER');
+        } catch (err) {
+          console.error('[onAuthStateChanged] getOrCreateFarm error:', err.message);
+        }
+      } else {
+        // Đã đăng xuất — về chế độ Guest
+        setActiveFarmId(DEFAULT_GUEST_FARM_ID);
+        setUser(null);
+      }
+    });
+
+    return () => unsub();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 1. Subscribe to Flocks on activeFarmId change
   useEffect(() => {
@@ -478,6 +522,7 @@ export default function HomeApp() {
           activeFarmId={activeFarmId}
           setActiveFarmId={setActiveFarmId}
           onOpenShareModal={() => setIsShareModalOpen(true)}
+          syncStatus={syncStatus}
         />
 
         {/* Read-Only Warning Banner */}

@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    // Kiểm tra người dùng đã xác thực
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Kiểm tra người dùng là thành viên của trang trại
+    // Đọc từ sub-collection farms/{farmId}/members/{uid} thay vì mảng object
+    // (mảng object không thể kiểm tra quyền chính xác trong Security Rules)
+    function isFarmMember(farmId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/farms/$(farmId)/members/$(request.auth.uid));
+    }
+
+    // ─── FARMS ──────────────────────────────────────────────────────────────────
+    match /farms/{farmId} {
+      // Chỉ thành viên mới được đọc thông tin trang trại
+      allow read: if isFarmMember(farmId);
+
+      // Tạo trang trại mới: farmId bắt buộc phải bắt đầu bằng uid của người tạo.
+      // Ngăn một user tạo farm giả danh uid người khác.
+      allow create: if isAuthenticated() && farmId.matches(request.auth.uid + '_.*');
+
+      // Cập nhật chỉ cho thành viên hiện có
+      allow update: if isFarmMember(farmId);
+
+      // Không cho phép xóa trang trại
+      allow delete: if false;
+
+      // ─── MEMBERS SUB-COLLECTION ─────────────────────────────────────────────
+      // Lưu quyền thành viên theo cấu trúc: farms/{farmId}/members/{userId}
+      // Document chứa: { role: "OWNER" | "VIEWER", joinedAt: Timestamp }
+      match /members/{userId} {
+        // Chỉ thành viên hiện có mới đọc được danh sách thành viên
+        allow read: if isFarmMember(farmId);
+
+        // Mỗi user chỉ có thể tạo/sửa entry của chính mình
+        // (khi tạo farm mới hoặc khi chủ hộ mời thành viên qua magic link)
+        allow write: if isAuthenticated() && userId == request.auth.uid;
+      }
+
+      // ─── FLOCKS ─────────────────────────────────────────────────────────────
+      // Đường dẫn: farms/{farmId}/flocks/{flockId}
+      match /flocks/{flockId} {
+        allow read, write: if isFarmMember(farmId);
+
+        // ─── VACCINE SCHEDULES ───────────────────────────────────────────────
+        // Đường dẫn đúng (xác nhận từ tenantDb.js): 
+        //   farms/{farmId}/flocks/{flockId}/vaccine_schedules/{scheduleId}
+        // Lưu ý: KHÔNG phải "vaccines" — tên này sẽ khiến Firestore từ chối toàn bộ đọc/ghi lịch tiêm
+        match /vaccine_schedules/{scheduleId} {
+          allow read, write: if isFarmMember(farmId);
+        }
+      }
+
+      // ─── HEALTH LOGS ────────────────────────────────────────────────────────
+      // Đường dẫn: farms/{farmId}/health_logs/{logId}
+      // Ghi nhật ký sức khỏe & giao dịch tài chính
+      match /health_logs/{logId} {
+        allow read, write: if isFarmMember(farmId);
+      }
+
+      // ─── VISION DIAGNOSES ───────────────────────────────────────────────────
+      // Đường dẫn: farms/{farmId}/vision_diagnoses/{diagId}
+      // Lịch sử chẩn đoán bệnh bằng AI
+      match /vision_diagnoses/{diagId} {
+        allow read, write: if isFarmMember(farmId);
+      }
+    }
+  }
+}
