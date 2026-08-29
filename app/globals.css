@@ -18,9 +18,9 @@
 body {
   background-color: var(--background);
   color: var(--on-surface);
-  font-family: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   margin: 0;
   padding: 0;
@@ -88,8 +88,8 @@ button, input, select, a {
 .btn-primary-cta {
   background-color: #fea619;
   color: #1e293b;
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: 800;
+  font-size: 16px;
   min-height: 48px;
   border-radius: 16px;
   display: flex;
