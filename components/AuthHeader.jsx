@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LogIn, LogOut, ChevronDown, X, Smartphone, PlusCircle,
-  Share2, Check, CloudSun, ShieldCheck, CloudOff, Cloud, AlertTriangle
+  Share2, Check, CloudSun, ShieldCheck, CloudOff, Cloud, AlertTriangle, Sparkles
 } from 'lucide-react';
 import { auth, isCloudEnabled, GoogleAuthProvider, signInWithPopup, signOut } from '../lib/firebase';
 import {
@@ -20,6 +20,7 @@ export default function AuthHeader({
   showMigratePrompt: externalShowMigratePrompt,
   onMigrateGuest: externalOnMigrateGuest,
   onSkipMigrate: externalOnSkipMigrate,
+  onOpenWalkthrough,
 }) {
   const [showAuthModal,       setShowAuthModal]       = useState(false);
   const [showCreateFarmModal, setShowCreateFarmModal] = useState(false);
@@ -240,9 +241,20 @@ export default function AuthHeader({
             </div>
           </div>
 
-          {/* Right: Badge + Auth */}
+          {/* Right: Badge + Walkthrough + Auth */}
           <div className="flex items-center gap-2">
             {renderSyncBadge()}
+
+            {/* Elderly-Friendly Voice Walkthrough Button */}
+            <button
+              onClick={onOpenWalkthrough}
+              title="Hướng dẫn sử dụng bằng giọng nói cho người lớn tuổi"
+              className="min-h-[40px] px-3 py-1.5 bg-surface-container-low hover:bg-surface-hover text-primary border border-primary/20 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-secondary shrink-0" />
+              <span className="hidden sm:inline">🎧 Hướng Dẫn</span>
+              <span className="sm:hidden">🎧</span>
+            </button>
 
             {!user ? (
               <button
@@ -285,6 +297,12 @@ export default function AuthHeader({
                         </div>
                       </div>
                     )}
+
+                    <button onClick={() => { setShowUserDropdown(false); onOpenWalkthrough(); }}
+                      className="w-full min-h-[44px] px-4 text-left text-xs font-bold hover:bg-surface-hover text-primary flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-secondary-container" />
+                      <span>🎧 Nghe Hướng Dẫn Giọng Nói</span>
+                    </button>
 
                     <button onClick={() => { setShowUserDropdown(false); setShowCreateFarmModal(true); }}
                       className="w-full min-h-[44px] px-4 text-left text-xs font-bold hover:bg-surface-hover text-primary flex items-center gap-2">

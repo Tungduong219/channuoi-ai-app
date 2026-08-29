@@ -8,6 +8,7 @@ import AddFlockModal from '@/components/AddFlockModal';
 import FamilyShareModal from '@/components/FamilyShareModal';
 import DiseaseDetailModal from '@/components/DiseaseDetailModal';
 import AuthHeader from '@/components/AuthHeader';
+import InteractiveVoiceWalkthrough from '@/components/InteractiveVoiceWalkthrough';
 import {
   DEFAULT_GUEST_FARM_ID,
   getFarm,
@@ -227,6 +228,21 @@ export default function HomeApp() {
     { id: 't2', title: 'Kiểm tra quạt thông gió & nhiệt độ', time: '11:30 Trưa', icon: Sun, completed: false },
     { id: 't3', title: 'Cho ăn cữ chiều & bổ sung men tiêu hóa', time: '15:00 Chiều', icon: Pill, completed: false },
   ]);
+
+  // Elderly Interactive Voice Walkthrough Modal State
+  const [isWalkthroughOpen, setIsWalkthroughOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hasCompleted = localStorage.getItem('has_completed_voice_walkthrough');
+      if (!hasCompleted) {
+        const timer = setTimeout(() => {
+          setIsWalkthroughOpen(true);
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user]);
 
   const toggleTask = (taskId) => {
     setDailyTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t));
@@ -561,6 +577,7 @@ export default function HomeApp() {
         user={user}
         currentFarm={currentFarm}
         onOpenShareModal={() => setIsShareModalOpen(true)}
+        onOpenWalkthrough={() => setIsWalkthroughOpen(true)}
       />
 
       {/* Main App Container (Shifted right on desktop by 64 = 256px) */}
@@ -578,6 +595,7 @@ export default function HomeApp() {
           showMigratePrompt={showMigratePrompt}
           onMigrateGuest={handleMigrateGuest}
           onSkipMigrate={handleSkipMigrate}
+          onOpenWalkthrough={() => setIsWalkthroughOpen(true)}
         />
 
         {/* Read-Only Warning Banner */}
@@ -662,6 +680,7 @@ export default function HomeApp() {
               {/* 1. Hero Actions (2 Big Touch Buttons) */}
               <section className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <button
+                  id="tour-mic-button"
                   onClick={() => setIsMicOpen(true)}
                   className="pulse-ring relative overflow-hidden bg-primary text-white rounded-3xl p-5 flex items-center justify-between group transition-transform hover:scale-[1.02] shadow-sm text-left h-24"
                 >
@@ -679,6 +698,7 @@ export default function HomeApp() {
                 </button>
 
                 <button
+                  id="tour-vision-card"
                   onClick={() => setActiveTab('vision')}
                   className="relative overflow-hidden bg-secondary-container text-on-secondary-container rounded-3xl p-5 flex items-center justify-between group transition-transform hover:scale-[1.02] soft-shadow-hover text-left h-24"
                 >
@@ -770,7 +790,7 @@ export default function HomeApp() {
                 {/* Left Column (60% on desktop = 7 cols) */}
                 <div className="lg:col-span-7 flex flex-col gap-6">
                   {/* Nearest Vaccine Reminder (Focused on the upcoming/urgent vaccine) */}
-                  <section className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow space-y-3">
+                  <section id="tour-vaccines-card" className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow space-y-3">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <span className="w-8 h-8 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center font-bold text-sm">
@@ -944,7 +964,7 @@ export default function HomeApp() {
                   </section>
 
                   {/* Market Prices Today (Grounded Live Data) */}
-                  <section className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow space-y-3">
+                  <section id="tour-market-card" className="bg-surface-card border border-border-subtle rounded-3xl p-card-padding soft-shadow space-y-3">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-primary" />
@@ -2179,6 +2199,12 @@ export default function HomeApp() {
           </div>
         </div>
       )}
+
+      {/* 8. Interactive Voice & Spotlight Walkthrough for Elderly Farmers */}
+      <InteractiveVoiceWalkthrough
+        isOpen={isWalkthroughOpen}
+        onClose={() => setIsWalkthroughOpen(false)}
+      />
     </div>
   );
 }

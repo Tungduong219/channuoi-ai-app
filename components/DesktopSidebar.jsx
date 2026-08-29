@@ -20,7 +20,8 @@ export default function DesktopSidebar({
   user,
   currentFarm,
   onOpenShareModal,
-  onOpenSettings
+  onOpenSettings,
+  onOpenWalkthrough,
 }) {
   const navItems = [
     { id: 'home', label: 'Trang chủ', icon: Home },
@@ -86,7 +87,15 @@ export default function DesktopSidebar({
           );
         })}
 
-        <div className="pt-3">
+        <div className="pt-3 space-y-1">
+          <button
+            onClick={onOpenWalkthrough}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-bold text-primary bg-surface-subtle border border-primary/20 hover:bg-surface-hover transition-colors text-left"
+          >
+            <Sparkles className="w-4 h-4 text-secondary-container" />
+            <span>🎧 Hướng dẫn giọng nói</span>
+          </button>
+
           <button
             onClick={onOpenShareModal}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-bold text-on-surface-muted hover:bg-surface-hover hover:text-primary transition-colors text-left"
