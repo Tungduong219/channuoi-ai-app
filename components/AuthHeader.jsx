@@ -16,7 +16,10 @@ export default function AuthHeader({
   user,     setUser,
   activeFarmId, setActiveFarmId,
   onOpenShareModal,
-  syncStatus,   // 'synced' | 'error' | 'offline' — được truyền từ page.jsx
+  syncStatus,   // 'connecting' | 'synced' | 'error' | 'offline' — được truyền từ page.jsx
+  showMigratePrompt: externalShowMigratePrompt,
+  onMigrateGuest: externalOnMigrateGuest,
+  onSkipMigrate: externalOnSkipMigrate,
 }) {
   const [showAuthModal,       setShowAuthModal]       = useState(false);
   const [showCreateFarmModal, setShowCreateFarmModal] = useState(false);
@@ -25,8 +28,10 @@ export default function AuthHeader({
   const [copiedLink,          setCopiedLink]          = useState(false);
   const [authLoading,         setAuthLoading]         = useState(false);
   const [authError,           setAuthError]           = useState(null);
-  const [showMigratePrompt,   setShowMigratePrompt]   = useState(false);
+  const [internalShowMigratePrompt, setInternalShowMigratePrompt] = useState(false);
   const [pendingFarmId,       setPendingFarmId]       = useState(null);
+
+  const isMigrateVisible = externalShowMigratePrompt !== undefined ? externalShowMigratePrompt : internalShowMigratePrompt;
 
   // Form states
   const [phoneInput,     setPhoneInput]     = useState('');
@@ -43,6 +48,8 @@ export default function AuthHeader({
   };
 
   // ─── Google Sign-In thật (Firebase Auth) ───────────────────────────────────
+  // onAuthStateChanged trong page.jsx là nguồn duy nhất (single source of truth)
+  // để quản lý user / farm / guest migration prompt — tránh gọi trùng lặp 2 lần
   const handleGoogleLogin = async () => {
     setAuthLoading(true);
     setAuthError(null);
@@ -64,33 +71,12 @@ export default function AuthHeader({
       return;
     }
 
-    // Firebase Auth thật
+    // Firebase Auth thật — chỉ gọi popup, onAuthStateChanged tự đồng bộ user và farm
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, provider);
-      const firebaseUser = result.user;
-
-      const { farm, isNew, hasGuestData } = await getOrCreateFarm(firebaseUser);
-
-      setUser({
-        name:     firebaseUser.displayName,
-        email:    firebaseUser.email,
-        photoURL: firebaseUser.photoURL,
-        uid:      firebaseUser.uid,
-        farmId:   farm.farmId,
-        farmName: farm.farmName,
-      });
-      setUserRole('OWNER');
-      setActiveFarmId(farm.farmId);
+      await signInWithPopup(auth, provider);
       setShowAuthModal(false);
-
-      // Hiện Toast chuyển dữ liệu Guest nếu đăng nhập lần đầu và có dữ liệu cục bộ
-      if (isNew && hasGuestData) {
-        setPendingFarmId(farm.farmId);
-        setShowMigratePrompt(true);
-      }
-
       loadFarms();
     } catch (err) {
       console.error('[Google Sign-In]', err.code, err.message);
@@ -108,15 +94,20 @@ export default function AuthHeader({
 
   // ─── Guest Migration Handlers ───────────────────────────────────────────────
   const handleMigrateGuest = async () => {
-    if (pendingFarmId) {
+    if (externalOnMigrateGuest) {
+      await externalOnMigrateGuest();
+    } else if (pendingFarmId) {
       await migrateGuestData(pendingFarmId);
     }
-    setShowMigratePrompt(false);
+    setInternalShowMigratePrompt(false);
     setPendingFarmId(null);
   };
 
   const handleSkipMigrate = () => {
-    setShowMigratePrompt(false);
+    if (externalOnSkipMigrate) {
+      externalOnSkipMigrate();
+    }
+    setInternalShowMigratePrompt(false);
     setPendingFarmId(null);
   };
 
@@ -192,6 +183,15 @@ export default function AuthHeader({
           className="hidden sm:flex items-center gap-1 text-[10px] font-bold text-secondary bg-secondary-fixed/30 px-2 py-0.5 rounded-full border border-secondary-container/30">
           <CloudOff className="w-3 h-3" />
           <span>Offline Mode</span>
+        </span>
+      );
+    }
+    if (syncStatus === 'connecting') {
+      return (
+        <span title="Đang kết nối Firestore..."
+          className="hidden sm:flex items-center gap-1 text-[10px] font-bold text-on-surface-muted bg-surface-container-low px-2 py-0.5 rounded-full border border-border-subtle">
+          <div className="w-2.5 h-2.5 rounded-full border-2 border-on-surface-muted/30 border-t-on-surface-muted animate-spin" />
+          <span>Đang kết nối</span>
         </span>
       );
     }
@@ -326,7 +326,7 @@ export default function AuthHeader({
       </header>
 
       {/* ─── Guest Data Migration Toast ─────────────────────────────────────── */}
-      {showMigratePrompt && (
+      {isMigrateVisible && (
         <div className="fixed bottom-24 left-4 right-4 z-50 bg-white border-2 border-primary/30 rounded-3xl p-4 shadow-2xl animate-count-up max-w-sm mx-auto">
           <div className="flex items-start gap-3 mb-3">
             <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl shrink-0">📦</div>

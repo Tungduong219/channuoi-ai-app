@@ -20,6 +20,7 @@ import {
   subscribeHealthLogs,
   saveVisionDiagnosis,
   getOrCreateFarm,
+  migrateGuestData,
   setSyncStatusListener,
 } from '@/lib/tenantDb';
 import { auth, isCloudEnabled, onAuthStateChanged } from '@/lib/firebase';
@@ -154,8 +155,26 @@ export default function HomeApp() {
   const [currentFarm, setCurrentFarm] = useState(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  // Cloud Sync Status — 'synced' | 'error' | 'offline'
-  const [syncStatus, setSyncStatus] = useState(isCloudEnabled ? 'synced' : 'offline');
+  // Cloud Sync Status — 'connecting' | 'synced' | 'error' | 'offline'
+  // Khởi tạo 'connecting' khi có Firebase thật, tránh badge nói dối trước khi verify
+  const [syncStatus, setSyncStatus] = useState(isCloudEnabled ? 'connecting' : 'offline');
+
+  // Guest Data Migration State
+  const [showMigratePrompt, setShowMigratePrompt] = useState(false);
+  const [pendingMigrateFarmId, setPendingMigrateFarmId] = useState(null);
+
+  const handleMigrateGuest = async () => {
+    if (pendingMigrateFarmId) {
+      await migrateGuestData(pendingMigrateFarmId);
+    }
+    setShowMigratePrompt(false);
+    setPendingMigrateFarmId(null);
+  };
+
+  const handleSkipMigrate = () => {
+    setShowMigratePrompt(false);
+    setPendingMigrateFarmId(null);
+  };
 
   // Multi-Flock Management State
   const [flocks, setFlocks] = useState([]);
@@ -203,7 +222,7 @@ export default function HomeApp() {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          const { farm } = await getOrCreateFarm(firebaseUser);
+          const { farm, isNew, hasGuestData } = await getOrCreateFarm(firebaseUser);
           setActiveFarmId(farm.farmId);
           setUser(prev => prev?.uid === firebaseUser.uid ? prev : {
             name:     firebaseUser.displayName,
@@ -214,6 +233,12 @@ export default function HomeApp() {
             farmName: farm.farmName,
           });
           setUserRole('OWNER');
+
+          // Hiện Toast chuyển dữ liệu nếu đăng nhập lần đầu và có dữ liệu guest cũ
+          if (isNew && hasGuestData) {
+            setPendingMigrateFarmId(farm.farmId);
+            setShowMigratePrompt(true);
+          }
         } catch (err) {
           console.error('[onAuthStateChanged] getOrCreateFarm error:', err.message);
         }
@@ -523,6 +548,9 @@ export default function HomeApp() {
           setActiveFarmId={setActiveFarmId}
           onOpenShareModal={() => setIsShareModalOpen(true)}
           syncStatus={syncStatus}
+          showMigratePrompt={showMigratePrompt}
+          onMigrateGuest={handleMigrateGuest}
+          onSkipMigrate={handleSkipMigrate}
         />
 
         {/* Read-Only Warning Banner */}
