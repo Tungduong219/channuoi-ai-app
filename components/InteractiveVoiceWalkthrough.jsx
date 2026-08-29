@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Volume2, VolumeX, ChevronRight, ChevronLeft, X, 
-  Sparkles, CheckCircle2, Mic, Camera, Calendar, TrendingUp, Hand 
+  Sparkles, CheckCircle2, Mic, Camera, Calendar, TrendingUp, PlusCircle 
 } from 'lucide-react';
 
 const TUTORIAL_STEPS = [
@@ -11,42 +11,51 @@ const TUTORIAL_STEPS = [
     stepNumber: 1,
     targetId: null, // General overview
     title: "Chào Mừng Bác Đến Với ChănNuôi AI! 🐔",
-    voiceScript: "Kính chào Bác! Chúc mừng Bác đã đăng nhập thành công vào Chăn Nuôi AI. Ứng dụng này được thiết kế để giúp Bác quản lý đàn gà, ghi chép sổ sách và theo dõi dịch bệnh cực kỳ đơn giản, không cần biết dùng máy tính phức tạp. Hãy cùng xem qua 4 tính năng chính nhé!",
-    instruction: "Bác chỉ cần làm quen 4 nút bấm chính để quản lý toàn bộ trang trại gà của mình.",
+    voiceScript: "Kính chào Bác! Chúc mừng Bác đã đăng nhập thành công vào Chăn Nuôi AI. Ứng dụng này được thiết kế để giúp Bác quản lý đàn gà, ghi chép sổ sách và theo dõi dịch bệnh cực kỳ đơn giản, không cần biết dùng máy tính phức tạp. Hãy cùng xem qua các tính năng chính nhé!",
+    instruction: "Bác chỉ cần làm quen các nút bấm chính để quản lý toàn bộ trang trại gà của mình.",
     icon: Sparkles,
     badgeColor: "bg-primary text-white"
   },
   {
     stepNumber: 2,
+    targetId: "tour-add-flock-button",
+    title: "1. Thêm Đàn Gà Mới & Tự Động Lập Lịch Vắc-xin 🐔",
+    voiceScript: "Khi Bác nhập lứa gà giống mới về chuồng, Bác chỉ cần bấm vào nút 'Thêm Đàn' màu xanh ở đây. Bác chọn giống gà như Gà Ri lai, Gà Mía, nhập số lượng con và ngày vào giống. Ứng dụng sẽ tự động lập sẵn toàn bộ lịch tiêm phòng 14 mốc vắc-xin chuẩn thú y từ ngày 1 đến khi xuất bán cho Bác.",
+    instruction: "👉 Bấm nút '+ Thêm Đàn' khi nhập gà mới. AI tự động tạo sẵn toàn bộ lịch tiêm 14 mốc vắc-xin chuẩn thú y!",
+    icon: PlusCircle,
+    badgeColor: "bg-primary text-white"
+  },
+  {
+    stepNumber: 3,
     targetId: "tour-mic-button",
-    title: "1. Nút Ghi Sổ Giọng Nói — Không Cần Gõ Chữ 🎙️",
+    title: "2. Ghi Sổ Bằng Giọng Nói — Không Cần Gõ Chữ 🎙️",
     voiceScript: "Bác hãy nhìn vào nút Micro to màu xanh ở đây. Bác chỉ cần bấm vào nút Micro này, sau đó nói bằng giọng nói tự nhiên, ví dụ: 'Hôm nay mua 5 bao cám hết 1 triệu 8' hoặc 'Bán 200 con gà thu 30 triệu'. AI sẽ tự động tính toán và ghi vào sổ quỹ cho Bác.",
     instruction: "👉 Bấm vào nút Micro to này và nói tự nhiên bằng tiếng Việt địa phương. AI tự ghi sổ thu chi!",
     icon: Mic,
     badgeColor: "bg-primary text-white"
   },
   {
-    stepNumber: 3,
+    stepNumber: 4,
     targetId: "tour-vision-card",
-    title: "2. Khám Bệnh Gia Cầm Bằng Chụp Ảnh AI 📸",
+    title: "3. Khám Bệnh Gia Cầm Bằng Chụp Ảnh AI 📸",
     voiceScript: "Tiếp theo là nút Khám Bệnh màu cam ở đây. Khi thấy gà trong chuồng bị ủ rũ hoặc đi phân lạ, Bác bấm vào nút Khám Bệnh, chụp từ 1 đến 3 tấm ảnh phân hoặc mào mắt của gà. Bác sĩ thú y AI sẽ phân tích đối soát 20 bệnh gia cầm và hướng dẫn Bác cách ly, khử trùng an toàn ngay lập tức.",
     instruction: "👉 Bấm nút 'Khám Bệnh' để chụp ảnh phân hoặc gà bệnh. Bác sĩ thú y AI chẩn đoán ngay sau 3 giây!",
     icon: Camera,
     badgeColor: "bg-secondary-container text-white"
   },
   {
-    stepNumber: 4,
+    stepNumber: 5,
     targetId: "tour-vaccines-card",
-    title: "3. Lịch Tiêm Vắc-xin & Việc Cần Làm Hàng Ngày 💉",
+    title: "4. Lịch Tiêm Vắc-xin & Việc Cần Làm Hàng Ngày 💉",
     voiceScript: "Khu vực này sẽ tự động tính ngày và nhắc Bác chính xác ngày nào cần tiêm phòng vắc-xin gì cho đàn gà, kèm theo danh sách việc cần làm buổi sáng, buổi trưa, buổi chiều để Bác không bao giờ bị quên lịch chăm sóc.",
     instruction: "👉 Hệ thống tự tính ngày tiêm phòng vắc-xin chuẩn và nhắc việc chuồng trại mỗi ngày.",
     icon: Calendar,
     badgeColor: "bg-accent-warm text-white"
   },
   {
-    stepNumber: 5,
+    stepNumber: 6,
     targetId: "tour-market-card",
-    title: "4. Sổ Thu Chi Lời Lỗ & Giá Thị Trường 3 Miền 💵",
+    title: "5. Sổ Thu Chi Lời Lỗ & Giá Thị Trường 3 Miền 💵",
     voiceScript: "Mục Thu Chi giúp Bác biết chính xác lứa gà này đang lời hay lỗ bao nhiêu tiền và đã ăn hết bao nhiêu kg cám. Còn mục Giá Thị Trường giúp Bác xem giá gà thịt 3 miền hôm nay được cập nhật từ Báo Nông Nghiệp Việt Nam để không bao giờ bị thương lái ép giá.",
     instruction: "👉 Theo dõi tiền lời lỗ, lượng cám tiêu thụ và giá gà hôm nay để bán được giá cao nhất.",
     icon: TrendingUp,
@@ -105,7 +114,11 @@ export default function InteractiveVoiceWalkthrough({ isOpen, onClose }) {
       return;
     }
 
-    const element = document.getElementById(currentStep.targetId);
+    let element = document.getElementById(currentStep.targetId);
+    if (!element && currentStep.targetId === 'tour-add-flock-button') {
+      element = document.getElementById('tour-add-flock-button-mobile') || document.getElementById('tour-add-flock-button-desktop');
+    }
+
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       
@@ -258,7 +271,7 @@ export default function InteractiveVoiceWalkthrough({ isOpen, onClose }) {
           <div className="flex items-center justify-between border-b border-border-subtle pb-3">
             <div className="flex items-center gap-2">
               <span className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-full ${currentStep.badgeColor}`}>
-                Bước {currentStep.stepNumber} / 5
+                Bước {currentStep.stepNumber} / {TUTORIAL_STEPS.length}
               </span>
               <span className="text-xs font-bold text-on-surface-muted flex items-center gap-1">
                 {isSpeaking && <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping" />}

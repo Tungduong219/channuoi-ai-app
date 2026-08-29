@@ -639,8 +639,9 @@ export default function HomeApp() {
             )}
 
             <button
+              id="tour-add-flock-button"
               onClick={() => setIsAddFlockOpen(true)}
-              className="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-primary/90"
+              className="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-primary/90 transition-all active:scale-95"
             >
               <PlusCircle className="w-4 h-4" />
               <span>+ Thêm Đàn</span>
@@ -649,9 +650,9 @@ export default function HomeApp() {
         </div>
 
         {/* Mobile Top Context Selector */}
-        <div className="lg:hidden px-margin-mobile pt-3 space-y-2">
+        <div className="lg:hidden px-margin-mobile pt-3 flex items-center gap-2">
           {safeFlocks.length > 0 && (
-            <div className="relative">
+            <div className="relative flex-1">
               <select
                 value={selectedFlockId || ''}
                 onChange={(e) => setSelectedFlockId(e.target.value)}
@@ -668,6 +669,15 @@ export default function HomeApp() {
               </div>
             </div>
           )}
+
+          <button
+            id="tour-add-flock-button-mobile"
+            onClick={() => setIsAddFlockOpen(true)}
+            className="min-h-[42px] px-3.5 bg-primary text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-primary/90 shrink-0 transition-all active:scale-95"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>+ Đàn mới</span>
+          </button>
         </div>
 
         {/* Main Content Area */}
